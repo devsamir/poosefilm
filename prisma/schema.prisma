@@ -89,6 +89,7 @@ model OrderFile {
 model AppSetting {
   id           Int      @id @default(autoincrement())
   pricePerPrint Decimal  @map("price_per_print") @db.Decimal(12, 2)
+  whatsappTemplate String  @default("Halo {customerName}, hasil foto/video kamu sudah siap. Silakan download melalui link berikut: {link}. Terima kasih sudah menggunakan Poosefilm.") @map("whatsapp_template")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

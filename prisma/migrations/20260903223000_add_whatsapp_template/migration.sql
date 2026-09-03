@@ -1,0 +1,1 @@
+ALTER TABLE "app_settings" ADD COLUMN "whatsapp_template" TEXT NOT NULL DEFAULT 'Halo {customerName}, hasil foto/video kamu sudah siap. Silakan download melalui link berikut: {link}. Terima kasih sudah menggunakan Poosefilm.';

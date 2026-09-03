@@ -20,12 +20,12 @@ the seed preserves the existing password.
 ## MVP workflow
 
 - `Kasir`: create a paid cash order and print its QR receipt.
-- `Antrian`: upload image/video files directly to Cloudflare R2 and mark an order complete.
-- `Riwayat`: search delivered orders and print individual receipts.
+- `Antrian`: upload image/video files directly to Cloudflare R2, open a prefilled WhatsApp message, and mark an order complete.
+- `Riwayat`: search delivered orders, open a prefilled WhatsApp message, and print individual receipts.
 - `Rekap`: review daily order, revenue, delivered, and waiting totals.
 - `/order/:code`: public customer page with individual image/video previews and downloads.
 
-WhatsApp sending, Google Drive, QRIS, and payment gateway integration are intentionally deferred.
+WhatsApp API sending, Google Drive, QRIS, and payment gateway integration are intentionally deferred. WhatsApp currently opens a prefilled `wa.me` message for staff to send manually.
 
 ## Production
 

@@ -42,12 +42,16 @@ describe("public order portal", () => {
     const historyPage = readFileSync(resolve(process.cwd(), "app/routes/admin.history.tsx"), "utf8");
     const queuePage = readFileSync(resolve(process.cwd(), "app/routes/admin.queue.tsx"), "utf8");
     const summaryPage = readFileSync(resolve(process.cwd(), "app/routes/admin.summary.tsx"), "utf8");
+    const settingsPage = readFileSync(resolve(process.cwd(), "app/routes/admin.settings.tsx"), "utf8");
     const publicPage = readFileSync(resolve(process.cwd(), "app/routes/order.$code.tsx"), "utf8");
     const gallery = readFileSync(resolve(process.cwd(), "app/components/MediaGallery.tsx"), "utf8");
 
     expect(historyPage).toContain("to={`/admin/receipt/${order.code}`}");
     expect(historyPage).toContain('canDelete');
+    expect(historyPage).toContain("Kirim WA");
     expect(queuePage).toContain('canDelete');
+    expect(queuePage).toContain("Kirim WA");
+    expect(settingsPage).toContain("whatsappTemplate");
     expect(summaryPage).not.toContain("Cetak rekap");
     expect(publicPage).not.toContain('canDelete');
     expect(gallery).toContain("window.confirm");
