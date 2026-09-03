@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #1c1d1f;
+  background: #f6f5f2;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background: #f6f5f2;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+@layer components {
+  .eyebrow { @apply text-[10px] font-semibold uppercase tracking-[0.22em] text-[#a09587]; }
+  .page-title { @apply mt-2 font-display text-4xl tracking-tight sm:text-5xl; }
+  .page-subtitle { @apply mt-3 text-sm leading-6 text-[#84796c]; }
+  .section-title { @apply font-display text-2xl; }
+  .field-label { @apply block text-xs font-semibold text-[#62594f]; }
+  .field-input { @apply mt-2 block w-full rounded-xl border border-[#ded5ca] bg-[#fcfaf7] px-3 py-3 text-sm font-normal outline-none transition placeholder:text-[#b2a79a] focus:border-[#25231f] focus:ring-2 focus:ring-[#25231f]/10; }
+  .button-primary { @apply inline-flex items-center justify-center rounded-xl bg-[#25231f] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#454039] disabled:cursor-not-allowed disabled:opacity-50; }
+  .button-secondary { @apply inline-flex items-center justify-center rounded-xl border border-[#ded5ca] bg-white px-4 py-3 text-sm font-semibold text-[#62594f] transition hover:border-[#25231f] hover:text-[#25231f] disabled:cursor-not-allowed disabled:opacity-50; }
+  .menu-link { @apply block rounded-xl px-3 py-2 text-sm text-[#62594f] hover:bg-[#f7f3ed] hover:text-[#25231f]; }
+  .status-pill { @apply rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]; }
+  .status-ready { @apply bg-emerald-50 text-emerald-700; }
+  .status-waiting { @apply bg-amber-50 text-amber-700; }
+}
+
+@media print {
+  body { background: white; }
+  body * { visibility: hidden; }
+  .receipt-area, .receipt-area * { visibility: visible; }
+  .receipt-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .receipt-area { border: 0; box-shadow: none; }
+  .receipt-area .print\:hidden { display: none; }
+}
