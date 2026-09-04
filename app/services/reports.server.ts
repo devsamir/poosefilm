@@ -15,10 +15,21 @@ export async function getPublicOrder(code: string) {
   return order ? serializePublicOrder(order) : null;
 }
 
-export async function listDeliveredOrders(query: string) {
+export function getHistoryPagination(requestedPage: number, pageSize: number, totalCount = 0) {
+  const normalizedPageSize = Number.isInteger(pageSize) && pageSize > 0 ? pageSize : 12;
+  const totalPages = Math.max(1, Math.ceil(totalCount / normalizedPageSize));
+  const normalizedRequestedPage = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const page = Math.min(normalizedRequestedPage, totalPages);
+  return { page, pageSize: normalizedPageSize, totalPages, skip: (page - 1) * normalizedPageSize };
+}
+
+export async function listDeliveredOrders(query: string, requestedPage = 1, pageSize = 12) {
   const search = query.trim();
-  const orders = await prisma.order.findMany({ where: { status: "DELIVERED", ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" } }, { customerName: { contains: search, mode: "insensitive" } }, { whatsapp: { contains: search } }] } : {}) }, include: { _count: { select: { files: true } }, files: { orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "desc" } });
-  return orders.map((order) => ({ ...order, files: serializeOrderMedia(order.code, order.files) }));
+  const where = { status: "DELIVERED" as const, ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" as const } }, { customerName: { contains: search, mode: "insensitive" as const } }, { whatsapp: { contains: search } }] } : {}) };
+  const total = await prisma.order.count({ where });
+  const pagination = getHistoryPagination(requestedPage, pageSize, total);
+  const orders = await prisma.order.findMany({ where, include: { _count: { select: { files: true } }, files: { orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "desc" }, skip: pagination.skip, take: pagination.pageSize });
+  return { orders: orders.map((order) => ({ ...order, files: serializeOrderMedia(order.code, order.files) })), total, pagination };
 }
 
 function getDateRange(date: string) {
@@ -32,11 +43,13 @@ function getDateRange(date: string) {
 export async function getDailySummary(date: string) {
   const { start, end } = getDateRange(date);
   const where = { createdAt: { gte: start, lt: end } };
-  const [orders, delivered, waiting, totals] = await Promise.all([
+  const [orders, realOrders, freeOrders, delivered, waiting, totals] = await Promise.all([
     prisma.order.count({ where }),
+    prisma.order.count({ where: { ...where, isRealTransaction: true } }),
+    prisma.order.count({ where: { ...where, isRealTransaction: false } }),
     prisma.order.count({ where: { ...where, status: "DELIVERED" } }),
     prisma.order.count({ where: { ...where, status: { in: ["WAITING_UPLOAD", "READY"] } } }),
-    prisma.order.aggregate({ where, _sum: { quantity: true, totalAmount: true } }),
+    prisma.order.aggregate({ where: { ...where, isRealTransaction: true }, _sum: { quantity: true, totalAmount: true } }),
   ]);
-  return { date, totalOrders: orders, totalPrints: totals._sum.quantity || 0, revenue: Number(totals._sum.totalAmount || 0), delivered, waiting };
+  return { date, totalOrders: orders, realOrders, freeOrders, totalPrints: totals._sum.quantity || 0, revenue: Number(totals._sum.totalAmount || 0), delivered, waiting };
 }

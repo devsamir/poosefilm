@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import { getMediaFileDeletePath } from "~/components/MediaGallery";
 import { buildOrderStorageKey, getOrderStatusAfterFileDeletion, validateMediaInput } from "~/services/order-files.server";
@@ -33,5 +35,10 @@ describe("order media uploads", () => {
     expect(getOrderStatusAfterFileDeletion("READY", 0)).toBe("WAITING_UPLOAD");
     expect(getOrderStatusAfterFileDeletion("READY", 1)).toBe("READY");
     expect(getOrderStatusAfterFileDeletion("DELIVERED", 0)).toBe("DELIVERED");
+  });
+
+  it("allows additional uploads to delivered orders", () => {
+    const serviceSource = readFileSync(resolve(process.cwd(), "app/services/order-files.server.ts"), "utf8");
+    expect(serviceSource).not.toContain('if (order.status === "DELIVERED") throw new Error("Order sudah selesai.");');
   });
 });

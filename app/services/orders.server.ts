@@ -1,6 +1,9 @@
 import { Prisma } from "@prisma/client";
 
+import type { AuthUser } from "~/services/auth.server";
+import { canAccessSuperadmin } from "~/services/auth.server";
 import { prisma } from "~/services/prisma.server";
+import { deleteObjectIfPresent } from "~/services/r2.server";
 import { getPricePerPrint } from "~/services/settings.server";
 import { buildOrderSnapshot } from "~/utils/order-invariants";
 import { generatePublicOrderCode } from "~/utils/public-code";
@@ -15,10 +18,10 @@ export function validateOrderInput(input: { customerName: string; whatsapp: stri
   return { customerName, whatsapp, quantity };
 }
 
-export async function createOrder(input: { customerName: string; whatsapp: string; quantity: string }, createdById: number) {
+export async function createOrder(input: { customerName: string; whatsapp: string; quantity: string; isRealTransaction?: boolean }, createdById: number) {
   const details = validateOrderInput(input);
   const price = Number(await getPricePerPrint());
-  const snapshot = buildOrderSnapshot({ quantity: details.quantity, unitPrice: price });
+  const snapshot = buildOrderSnapshot({ quantity: details.quantity, unitPrice: price, isRealTransaction: input.isRealTransaction !== false });
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
@@ -30,6 +33,7 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
           quantity: details.quantity,
           unitPrice: snapshot.unitPrice,
           totalAmount: snapshot.totalAmount,
+          isRealTransaction: snapshot.isRealTransaction,
           paymentMethod: snapshot.paymentMethod,
           paymentStatus: snapshot.paymentStatus,
           status: snapshot.status,
@@ -56,4 +60,15 @@ export async function markOrderDelivered(id: number) {
   if (!order) throw new Error("Order tidak ditemukan.");
   if (!order._count.files) throw new Error("Order belum memiliki file.");
   return prisma.order.update({ where: { id }, data: { status: "DELIVERED", deliveredAt: new Date() } });
+}
+
+export async function deleteDeliveredOrder(id: number, user: AuthUser) {
+  if (!canAccessSuperadmin(user)) throw new Error("Hanya superadmin yang dapat menghapus riwayat.");
+  const order = await prisma.order.findUnique({ where: { id }, include: { files: true } });
+  if (!order) throw new Error("Order tidak ditemukan.");
+  if (order.status !== "DELIVERED") throw new Error("Hanya order selesai yang dapat dihapus dari riwayat.");
+
+  await prisma.order.delete({ where: { id: order.id } });
+  for (const file of order.files) await deleteObjectIfPresent(file.storageKey);
+  return { deletedOrderId: order.id, deletedFileCount: order.files.length };
 }

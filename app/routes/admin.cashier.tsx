@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   json,
   type ActionFunctionArgs,
@@ -34,6 +34,7 @@ export async function action({ request }: ActionFunctionArgs) {
         customerName: String(formData.get('customerName') || ''),
         whatsapp: String(formData.get('whatsapp') || ''),
         quantity: String(formData.get('quantity') || ''),
+        isRealTransaction: formData.get('isRealTransaction') === 'on',
       },
       user.id
     );
@@ -69,10 +70,14 @@ export default function CashierPage() {
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const [quantity, setQuantity] = useState(1);
+  const [isRealTransaction, setIsRealTransaction] = useState(true);
   const order = actionData && 'order' in actionData ? actionData.order : null;
   const qrDataUrl =
     actionData && 'qrDataUrl' in actionData ? actionData.qrDataUrl : null;
   const error = actionData && 'error' in actionData ? actionData.error : null;
+  useEffect(() => {
+    if (order?.code) setIsRealTransaction(true);
+  }, [order?.code]);
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div>
@@ -120,6 +125,10 @@ export default function CashierPage() {
                 required
               />
             </label>
+            <label className="flex items-center gap-3 self-end rounded-xl border border-[#e6ded2] p-4 sm:col-span-2">
+              <input className="h-4 w-4 accent-[#25231f]" type="checkbox" name="isRealTransaction" checked={isRealTransaction} onChange={(event) => setIsRealTransaction(event.target.checked)} />
+              <span><span className="block text-sm font-semibold">Transaksi real</span><span className="mt-1 block text-xs text-[#84796c]">Matikan untuk order test/free dan total menjadi Rp0.</span></span>
+            </label>
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#eee7df] pt-5">
             <div>
@@ -129,7 +138,7 @@ export default function CashierPage() {
                   style: 'currency',
                   currency: 'IDR',
                   maximumFractionDigits: 0,
-                }).format(price * quantity)}
+                }).format(isRealTransaction ? price * quantity : 0)}
               </p>
               <p className="mt-1 text-xs text-[#968b7e]">
                 {new Intl.NumberFormat('id-ID', {

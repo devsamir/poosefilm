@@ -18,4 +18,9 @@ describe("authentication policy", () => {
     expect(canAccessSuperadmin({ role: "STAFF", isActive: true })).toBe(false);
     expect(canAccessSuperadmin({ role: "SUPERADMIN", isActive: false })).toBe(false);
   });
+
+  it("keeps history deletion restricted to active superadmins", () => {
+    expect(canAccessSuperadmin({ role: "SUPERADMIN", isActive: true })).toBe(true);
+    expect(canAccessSuperadmin({ role: "STAFF", isActive: true })).toBe(false);
+  });
 });

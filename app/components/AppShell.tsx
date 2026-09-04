@@ -2,6 +2,7 @@ import { NavLink, Outlet } from "@remix-run/react";
 
 import type { AuthUser } from "~/services/auth.server";
 import { AccountMenu } from "~/components/AccountMenu";
+import { UploadManagerProvider } from "~/components/UploadManager";
 
 export const PRIMARY_NAVIGATION = [
   ["Kasir", "/admin/cashier"],
@@ -11,7 +12,7 @@ export const PRIMARY_NAVIGATION = [
 ] as const;
 
 export function AppShell({ user }: { user: AuthUser }) {
-  return (
+  return <UploadManagerProvider>
     <div className="min-h-screen bg-[#f7f3ed] text-[#25231f]">
       <header className="sticky top-0 z-10 border-b border-[#e6ded2]/80 bg-[#f7f3ed]/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-5 lg:px-10">
@@ -24,5 +25,5 @@ export function AppShell({ user }: { user: AuthUser }) {
       </header>
       <main className="mx-auto max-w-7xl px-6 py-8 lg:px-10"><Outlet /></main>
     </div>
-  );
+  </UploadManagerProvider>;
 }

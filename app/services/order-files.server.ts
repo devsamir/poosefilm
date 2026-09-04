@@ -45,7 +45,6 @@ export async function createPresignedUpload(input: { orderCode: string; original
   assertStaff(user);
   const order = await getOrderByCode(input.orderCode);
   if (!order) throw new Error("Order tidak ditemukan.");
-  if (order.status === "DELIVERED") throw new Error("Order sudah selesai.");
   const media = validateMediaInput(input);
   const key = buildOrderStorageKey(order.code, input.originalName);
   const signed = await createPresignedPutUrl({ key, contentType: input.contentType });

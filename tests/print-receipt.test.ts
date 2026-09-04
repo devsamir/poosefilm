@@ -16,4 +16,12 @@ describe("receipt print stylesheet", () => {
     expect(receiptComponent).toContain('className="h-36 w-36"');
     expect(receiptComponent).not.toContain('className="h-28 w-28"');
   });
+
+  it("renders both Instagram handles with Instagram icons", () => {
+    expect(receiptComponent).toContain('import { FaInstagram } from "react-icons/fa";');
+    expect(receiptComponent).toContain('aria-label="Instagram @poosebox.id"');
+    expect(receiptComponent).toContain('aria-label="Instagram @poosefilm.id"');
+    expect(receiptComponent).toContain("@poosebox.id");
+    expect(receiptComponent).toContain("@poosefilm.id");
+  });
 });

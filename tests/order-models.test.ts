@@ -7,9 +7,17 @@ describe("order model invariants", () => {
     expect(buildOrderSnapshot({ quantity: 3, unitPrice: 95000 })).toEqual({
       unitPrice: 95000,
       totalAmount: 285000,
+      isRealTransaction: true,
       paymentMethod: "CASH",
       paymentStatus: "PAID",
       status: "WAITING_UPLOAD",
+    });
+  });
+
+  it("sets non-real transactions to zero value", () => {
+    expect(buildOrderSnapshot({ quantity: 3, unitPrice: 95000, isRealTransaction: false })).toMatchObject({
+      totalAmount: 0,
+      isRealTransaction: false,
     });
   });
 
