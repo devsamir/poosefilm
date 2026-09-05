@@ -4,7 +4,7 @@ import { getUploadBatchState, isUploadInProgress, type UploadJob, type UploadJob
 
 type UploadManagerValue = {
   jobs: UploadJob[];
-  enqueueUploads: (orderCode: string, files: File[]) => { batchId: string; jobIds: string[] };
+  enqueueUploads: (orderCode: string, files: File[], onComplete?: () => void) => { batchId: string; jobIds: string[] };
 };
 
 const UploadManagerContext = createContext<UploadManagerValue | null>(null);
@@ -61,7 +61,8 @@ function UploadTray({ jobs }: { jobs: UploadJob[] }) {
 export function UploadManagerProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<UploadJob[]>([]);
 
-  const processBatch = useCallback(async (orderCode: string, files: File[], jobIds: string[]) => {
+  const processBatch = useCallback(async (orderCode: string, files: File[], jobIds: string[], onComplete?: () => void) => {
+    let hasError = false;
     for (const [index, file] of files.entries()) {
       const jobId = jobIds[index];
       if (!jobId) continue;
@@ -76,16 +77,18 @@ export function UploadManagerProvider({ children }: { children: ReactNode }) {
         if (!completeResponse.ok) throw new Error(complete.error || "Gagal mencatat file.");
         updateJobState(setJobs, jobId, "COMPLETED", 100);
       } catch (error) {
+        hasError = true;
         updateJobState(setJobs, jobId, "ERROR", 0, error instanceof Error ? error.message : "Upload gagal.");
       }
     }
+    if (!hasError) onComplete?.();
   }, []);
 
-  const enqueueUploads = useCallback((orderCode: string, files: File[]) => {
+  const enqueueUploads = useCallback((orderCode: string, files: File[], onComplete?: () => void) => {
     const batchId = createClientId("batch");
     const newJobs = files.map((file) => ({ id: createClientId("upload"), batchId, orderCode, fileName: file.name, progress: 0, state: "QUEUED" as const }));
     setJobs((current) => [...current, ...newJobs]);
-    void processBatch(orderCode, files, newJobs.map((job) => job.id));
+    void processBatch(orderCode, files, newJobs.map((job) => job.id), onComplete);
     return { batchId, jobIds: newJobs.map((job) => job.id) };
   }, [processBatch]);
 
