@@ -6,6 +6,7 @@ import {
   getWebcamFileExtension,
   MAX_WEBCAM_RECORDING_SECONDS,
   normalizeWebcamMimeType,
+  WEBCAM_VIDEO_CONSTRAINTS,
 } from "~/utils/webcam";
 
 type WebcamRecorderProps = {
@@ -54,7 +55,7 @@ export function WebcamRecorder({ orderCode, customerName, onClose, onUploadCompl
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: WEBCAM_VIDEO_CONSTRAINTS, audio: true });
       streamRef.current = stream;
       if (liveVideoRef.current) {
         liveVideoRef.current.srcObject = stream;

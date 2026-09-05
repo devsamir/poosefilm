@@ -1,16 +1,22 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 import { randomUUID } from "node:crypto";
 
 import type { AuthUser } from "~/services/auth.server";
 import { getOrderByCode } from "~/services/orders.server";
 import { enqueueImageRenderJob } from "~/services/filter-render-jobs.server";
 import { prisma } from "~/services/prisma.server";
-import { assertObjectExists, createPresignedPutUrl, deleteObjectIfPresent } from "~/services/r2.server";
+import { assertObjectExists, createPresignedPutUrl, deleteObjectIfPresent, getObjectBuffer, putObject } from "~/services/r2.server";
 import { serializeOrderMedia } from "~/utils/media";
+import { buildFfmpegArguments, toMp4FileName } from "~/utils/video-transcode";
 
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime", "video/webm"]);
 const imageLimit = Number(process.env.MAX_IMAGE_BYTES || 25 * 1024 * 1024);
 const videoLimit = Number(process.env.MAX_VIDEO_BYTES || 500 * 1024 * 1024);
+const execFileAsync = promisify(execFile);
 
 export function sanitizeFilename(name: string) {
   return name.trim().replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "file";
@@ -52,6 +58,48 @@ export async function createPresignedUpload(input: { orderCode: string; original
   return { ...signed, key, mediaType: media.mediaType };
 }
 
+function isMissingFfmpegError(error: unknown) {
+  return Boolean(error && typeof error === "object" && "code" in error && (error as { code?: unknown }).code === "ENOENT");
+}
+
+async function transcodeWebmToMp4(input: { orderId: number; orderCode: string; sourceKey: string; originalName: string; sortOrder: number; orderStatus: "WAITING_UPLOAD" | "PROCESSING_FILTER" | "READY" | "DELIVERED" }) {
+  const temporaryDirectory = await mkdtemp(`${tmpdir()}/poosefilm-video-`);
+  const inputPath = `${temporaryDirectory}/input.webm`;
+  const outputPath = `${temporaryDirectory}/output.mp4`;
+  const outputKey = buildOrderStorageKey(input.orderCode, toMp4FileName(input.originalName));
+
+  try {
+    await writeFile(inputPath, await getObjectBuffer(input.sourceKey));
+    try {
+      await execFileAsync(process.env.FFMPEG_PATH || "ffmpeg", buildFfmpegArguments(inputPath, outputPath), { maxBuffer: 10 * 1024 * 1024, windowsHide: true });
+    } catch (error) {
+      if (isMissingFfmpegError(error)) throw new Error("FFmpeg belum terpasang atau tidak ada di PATH server.");
+      throw new Error("Video gagal dikonversi ke MP4.");
+    }
+
+    const outputBody = await readFile(outputPath);
+    await putObject({ key: outputKey, body: outputBody, contentType: "video/mp4" });
+    try {
+        const file = await prisma.$transaction(async (transaction) => {
+          const finalFile = await transaction.orderFile.create({ data: { orderId: input.orderId, originalName: toMp4FileName(input.originalName), storageKey: outputKey, contentType: "video/mp4", mediaType: "VIDEO", sizeBytes: BigInt(outputBody.byteLength), sortOrder: input.sortOrder } });
+          if (input.orderStatus === "WAITING_UPLOAD") await transaction.order.update({ where: { id: input.orderId }, data: { status: "READY" } });
+          return finalFile;
+        });
+      try {
+        await deleteObjectIfPresent(input.sourceKey);
+      } catch (error) {
+        console.error("Gagal membersihkan video WebM sementara dari R2:", error);
+      }
+      return file;
+    } catch (error) {
+      await deleteObjectIfPresent(outputKey);
+      throw error;
+    }
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
+}
+
 export async function completeOrderFile(input: { orderCode: string; key: string; originalName: string; contentType: string; sizeBytes: number }, user: AuthUser) {
   assertStaff(user);
   const order = await getOrderByCode(input.orderCode);
@@ -59,6 +107,7 @@ export async function completeOrderFile(input: { orderCode: string; key: string;
   if (!input.key.startsWith(`orders/${order.code}/`)) throw new Error("Storage key tidak sesuai order.");
   const media = validateMediaInput(input);
   await assertObjectExists(input.key);
+  if (input.contentType === "video/webm") return transcodeWebmToMp4({ orderId: order.id, orderCode: order.code, sourceKey: input.key, originalName: input.originalName, sortOrder: order.files.length, orderStatus: order.status });
   const file = await prisma.orderFile.create({ data: { orderId: order.id, originalName: input.originalName.trim(), storageKey: input.key, contentType: input.contentType, mediaType: media.mediaType, sizeBytes: BigInt(input.sizeBytes), sortOrder: order.files.length } });
   if (media.mediaType === "IMAGE" && order.filterSnapshots.length) {
     await enqueueImageRenderJob(file.id);

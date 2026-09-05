@@ -3,11 +3,19 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { MAX_WEBCAM_RECORDING_SECONDS, getSupportedRecordingMimeType, normalizeWebcamMimeType } from "~/utils/webcam";
+import { MAX_WEBCAM_RECORDING_SECONDS, getSupportedRecordingMimeType, normalizeWebcamMimeType, WEBCAM_VIDEO_CONSTRAINTS } from "~/utils/webcam";
 
 describe("webcam recorder", () => {
   it("limits browser recordings to 60 seconds", () => {
     expect(MAX_WEBCAM_RECORDING_SECONDS).toBe(60);
+  });
+
+  it("requests a high-quality webcam profile without requiring unsupported hardware", () => {
+    expect(WEBCAM_VIDEO_CONSTRAINTS).toEqual({
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: { ideal: 30, max: 30 },
+    });
   });
 
   it("selects an audio-capable browser recording format", () => {
@@ -23,6 +31,7 @@ describe("webcam recorder", () => {
     expect(component).toContain("audio: true");
     expect(component).toContain("MediaRecorder");
     expect(component).toContain("enqueueUploads");
+    expect(component).toContain("WEBCAM_VIDEO_CONSTRAINTS");
     expect(queue).toContain("WebcamRecorder");
     expect(queue).toContain("Rekam webcam");
   });

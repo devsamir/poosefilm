@@ -13,6 +13,10 @@ Standalone Remix POS for Poosefilm photo orders.
 Before the first browser upload, configure the bucket CORS rules with
 `npm run r2:cors`. Add any additional frontend origin to `R2_CORS_ORIGINS`.
 
+Webcam recordings are converted server-side to MP4 with audio. Install FFmpeg
+on the host and set `FFMPEG_PATH` when the executable is not available as
+`ffmpeg` on the process PATH.
+
 The initial SUPERADMIN is `admin@poosefilm.id`. The seed reads the initial
 password from `INITIAL_ADMIN_PASSWORD`; change it after first access. Rerunning
 the seed preserves the existing password.

@@ -1,5 +1,11 @@
 export const MAX_WEBCAM_RECORDING_SECONDS = 60;
 
+export const WEBCAM_VIDEO_CONSTRAINTS = {
+  width: { ideal: 1920 },
+  height: { ideal: 1080 },
+  frameRate: { ideal: 30, max: 30 },
+} as const;
+
 const preferredRecordingMimeTypes = [
   "video/webm;codecs=vp9,opus",
   "video/webm;codecs=vp8,opus",
