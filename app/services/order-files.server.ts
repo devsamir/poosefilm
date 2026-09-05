@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { AuthUser } from "~/services/auth.server";
 import { getOrderByCode } from "~/services/orders.server";
+import { enqueueImageRenderJob } from "~/services/filter-render-jobs.server";
 import { prisma } from "~/services/prisma.server";
 import { assertObjectExists, createPresignedPutUrl, deleteObjectIfPresent } from "~/services/r2.server";
 import { serializeOrderMedia } from "~/utils/media";
@@ -37,8 +38,8 @@ function assertStaff(user: AuthUser) {
   if (!user.isActive) throw new Error("User tidak aktif.");
 }
 
-export function getOrderStatusAfterFileDeletion(status: "WAITING_UPLOAD" | "READY" | "DELIVERED", remainingFileCount: number) {
-  return status === "READY" && remainingFileCount === 0 ? "WAITING_UPLOAD" : status;
+export function getOrderStatusAfterFileDeletion(status: "WAITING_UPLOAD" | "PROCESSING_FILTER" | "READY" | "DELIVERED", remainingFileCount: number) {
+  return (status === "READY" || status === "PROCESSING_FILTER") && remainingFileCount === 0 ? "WAITING_UPLOAD" : status;
 }
 
 export async function createPresignedUpload(input: { orderCode: string; originalName: string; contentType: string; sizeBytes: number }, user: AuthUser) {
@@ -59,27 +60,32 @@ export async function completeOrderFile(input: { orderCode: string; key: string;
   const media = validateMediaInput(input);
   await assertObjectExists(input.key);
   const file = await prisma.orderFile.create({ data: { orderId: order.id, originalName: input.originalName.trim(), storageKey: input.key, contentType: input.contentType, mediaType: media.mediaType, sizeBytes: BigInt(input.sizeBytes), sortOrder: order.files.length } });
-  if (order.status === "WAITING_UPLOAD") await prisma.order.update({ where: { id: order.id }, data: { status: "READY" } });
+  if (media.mediaType === "IMAGE" && order.filterSnapshots.length) {
+    await enqueueImageRenderJob(file.id);
+  } else if (order.status === "WAITING_UPLOAD") {
+    await prisma.order.update({ where: { id: order.id }, data: { status: "READY" } });
+  }
   return file;
 }
 
 export async function deleteOrderFile(orderCode: string, fileId: number, user: AuthUser) {
   assertStaff(user);
-  const file = await prisma.orderFile.findFirst({ where: { id: fileId, order: { code: orderCode } }, include: { order: { select: { status: true } } } });
+  const file = await prisma.orderFile.findFirst({ where: { id: fileId, order: { code: orderCode } }, include: { order: { select: { status: true } }, variants: { select: { storageKey: true } } } });
   if (!file) throw new Error("File tidak ditemukan.");
+  if (file.variantKind === "FILTERED") throw new Error("Hasil filter otomatis dihapus bersama file original.");
   await prisma.$transaction(async (transaction) => {
     await transaction.orderFile.delete({ where: { id: file.id } });
     const remainingFileCount = await transaction.orderFile.count({ where: { orderId: file.orderId } });
     const nextStatus = getOrderStatusAfterFileDeletion(file.order.status, remainingFileCount);
     if (nextStatus !== file.order.status) await transaction.order.update({ where: { id: file.orderId }, data: { status: nextStatus } });
   });
-  await deleteObjectIfPresent(file.storageKey);
+  for (const storageKey of [file.storageKey, ...file.variants.map((variant) => variant.storageKey)]) await deleteObjectIfPresent(storageKey);
 }
 
 export async function listWaitingOrders(query: string) {
   const search = query.trim();
-  const orders = await prisma.order.findMany({ where: { status: { in: ["WAITING_UPLOAD", "READY"] }, ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" } }, { customerName: { contains: search, mode: "insensitive" } }, { whatsapp: { contains: search } }] } : {}) }, include: { _count: { select: { files: true } }, files: { orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "asc" } });
-  return orders.map((order) => ({ ...order, files: serializeOrderMedia(order.code, order.files) }));
+  const orders = await prisma.order.findMany({ where: { status: { in: ["WAITING_UPLOAD", "PROCESSING_FILTER", "READY"] }, ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" } }, { customerName: { contains: search, mode: "insensitive" } }, { whatsapp: { contains: search } }] } : {}) }, include: { _count: { select: { files: true } }, files: { include: { filterSnapshot: true, renderJob: { select: { status: true, lastError: true } } }, orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "asc" } });
+  return orders.map((order) => ({ ...order, filterProcessing: order.files.some((file) => file.renderJob && file.renderJob.status !== "COMPLETED"), filterFailed: order.files.some((file) => file.renderJob?.status === "FAILED"), files: serializeOrderMedia(order.code, order.files) }));
 }
 
 export async function markOrderReadyIfFilesExist(orderId: number) {

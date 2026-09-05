@@ -6,8 +6,8 @@ export function buildPublicFileDownloadPath(code: string, fileId: number) {
   return `/api/order/${code}/file/${fileId}/download`;
 }
 
-export function serializePublicOrder(order: { code: string; status: string; files: Array<{ id: number; originalName: string; contentType: string; mediaType: string; sizeBytes: bigint }> }) {
-  return { code: order.code, status: order.status, files: serializeOrderMedia(order.code, order.files) };
+export function serializePublicOrder(order: { code: string; status: string; files: Array<{ id: number; originalName: string; contentType: string; mediaType: string; sizeBytes: bigint; variantKind?: string; filterSnapshot?: { filterName: string } | null; renderJob?: { status: string } | null }> }) {
+  return { code: order.code, status: order.status, files: order.status === "PROCESSING_FILTER" ? [] : serializeOrderMedia(order.code, order.files) };
 }
 
 export async function getPublicOrder(code: string) {
@@ -28,7 +28,7 @@ export async function listDeliveredOrders(query: string, requestedPage = 1, page
   const where = { status: "DELIVERED" as const, ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" as const } }, { customerName: { contains: search, mode: "insensitive" as const } }, { whatsapp: { contains: search } }] } : {}) };
   const total = await prisma.order.count({ where });
   const pagination = getHistoryPagination(requestedPage, pageSize, total);
-  const orders = await prisma.order.findMany({ where, include: { _count: { select: { files: true } }, files: { orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "desc" }, skip: pagination.skip, take: pagination.pageSize });
+  const orders = await prisma.order.findMany({ where, include: { _count: { select: { files: true } }, files: { include: { filterSnapshot: true, renderJob: { select: { status: true, lastError: true } } }, orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "desc" }, skip: pagination.skip, take: pagination.pageSize });
   return { orders: orders.map((order) => ({ ...order, files: serializeOrderMedia(order.code, order.files) })), total, pagination };
 }
 
@@ -48,7 +48,7 @@ export async function getDailySummary(date: string) {
     prisma.order.count({ where: { ...where, isRealTransaction: true } }),
     prisma.order.count({ where: { ...where, isRealTransaction: false } }),
     prisma.order.count({ where: { ...where, status: "DELIVERED" } }),
-    prisma.order.count({ where: { ...where, status: { in: ["WAITING_UPLOAD", "READY"] } } }),
+    prisma.order.count({ where: { ...where, status: { in: ["WAITING_UPLOAD", "PROCESSING_FILTER", "READY"] } } }),
     prisma.order.aggregate({ where: { ...where, isRealTransaction: true }, _sum: { quantity: true, totalAmount: true } }),
   ]);
   return { date, totalOrders: orders, realOrders, freeOrders, totalPrints: totals._sum.quantity || 0, revenue: Number(totals._sum.totalAmount || 0), delivered, waiting };

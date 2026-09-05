@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { generatePublicOrderCode } from '~/utils/public-code';
-import { validateOrderInput } from '~/services/orders.server';
+import { parseOptionalFilterPackageId, validateOrderInput } from '~/services/orders.server';
 
 describe('order creation', () => {
   it('generates a human-readable random public code', () => {
@@ -38,5 +38,12 @@ describe('order creation', () => {
         quantity: '0',
       })
     ).toThrow();
+  });
+
+  it('normalizes an optional filter package selection from form data', () => {
+    expect(parseOptionalFilterPackageId(undefined)).toBeUndefined();
+    expect(parseOptionalFilterPackageId('')).toBeUndefined();
+    expect(parseOptionalFilterPackageId('12')).toBe(12);
+    expect(() => parseOptionalFilterPackageId('not-a-package')).toThrow();
   });
 });

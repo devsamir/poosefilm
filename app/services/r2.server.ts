@@ -30,6 +30,18 @@ export async function assertObjectExists(key: string) {
   await r2Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
 }
 
+export async function getObjectBuffer(key: string) {
+  const { client: r2Client, bucket } = getClient();
+  const response = await r2Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!response.Body) throw new Error("Object R2 tidak memiliki isi.");
+  return Buffer.from(await response.Body.transformToByteArray());
+}
+
+export async function putObject(input: { key: string; body: Buffer; contentType: string }) {
+  const { client: r2Client, bucket } = getClient();
+  await r2Client.send(new PutObjectCommand({ Bucket: bucket, Key: input.key, Body: input.body, ContentType: input.contentType, ContentLength: input.body.byteLength }));
+}
+
 export async function deleteObject(key: string) {
   const { client: r2Client, bucket } = getClient();
   await r2Client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));

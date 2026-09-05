@@ -22,6 +22,7 @@ enum PaymentStatus {
 
 enum OrderStatus {
   WAITING_UPLOAD
+  PROCESSING_FILTER
   READY
   DELIVERED
 }
@@ -31,38 +32,53 @@ enum MediaType {
   VIDEO
 }
 
+enum OrderFileVariantKind {
+  ORIGINAL
+  FILTERED
+}
+
+enum FilterRenderStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 model User {
-  id           Int        @id @default(autoincrement())
+  id           Int      @id @default(autoincrement())
   name         String
-  email        String     @unique
-  passwordHash String     @map("password_hash")
-  role         UserRole   @default(STAFF)
-  isActive     Boolean    @default(true) @map("is_active")
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(STAFF)
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   orders       Order[]
 
   @@map("users")
 }
 
 model Order {
-  id            Int           @id @default(autoincrement())
-  code          String        @unique
-  customerName  String        @map("customer_name")
-  whatsapp      String
-  quantity      Int
-  unitPrice     Decimal       @map("unit_price") @db.Decimal(12, 2)
-  totalAmount   Decimal       @map("total_amount") @db.Decimal(12, 2)
-  isRealTransaction Boolean   @default(true) @map("is_real_transaction")
-  paymentMethod PaymentMethod @map("payment_method")
-  paymentStatus PaymentStatus @map("payment_status")
-  status        OrderStatus   @default(WAITING_UPLOAD)
-  createdById   Int           @map("created_by_id")
-  deliveredAt   DateTime?     @map("delivered_at")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
-  createdBy     User          @relation(fields: [createdById], references: [id])
-  files         OrderFile[]
+  id                Int                   @id @default(autoincrement())
+  code              String                @unique
+  customerName      String                @map("customer_name")
+  whatsapp          String
+  quantity          Int
+  unitPrice         Decimal               @map("unit_price") @db.Decimal(12, 2)
+  totalAmount       Decimal               @map("total_amount") @db.Decimal(12, 2)
+  isRealTransaction Boolean               @default(true) @map("is_real_transaction")
+  filterPackageId   Int?                  @map("filter_package_id")
+  paymentMethod     PaymentMethod         @map("payment_method")
+  paymentStatus     PaymentStatus         @map("payment_status")
+  status            OrderStatus           @default(WAITING_UPLOAD)
+  createdById       Int                   @map("created_by_id")
+  deliveredAt       DateTime?             @map("delivered_at")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
+  createdBy         User                  @relation(fields: [createdById], references: [id])
+  filterPackage     FilterPackage?        @relation(fields: [filterPackageId], references: [id], onDelete: SetNull)
+  filterSnapshots   OrderFilterSnapshot[]
+  files             OrderFile[]
 
   @@index([status, createdAt])
   @@index([customerName])
@@ -71,28 +87,120 @@ model Order {
 }
 
 model OrderFile {
-  id           Int       @id @default(autoincrement())
-  orderId      Int       @map("order_id")
-  originalName String    @map("original_name")
-  storageKey   String    @map("storage_key")
-  contentType  String    @map("content_type")
-  mediaType    MediaType @map("media_type")
-  sizeBytes    BigInt    @map("size_bytes")
-  sortOrder    Int       @default(0) @map("sort_order")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  order        Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id               Int                  @id @default(autoincrement())
+  orderId          Int                  @map("order_id")
+  originalName     String               @map("original_name")
+  storageKey       String               @map("storage_key")
+  contentType      String               @map("content_type")
+  mediaType        MediaType            @map("media_type")
+  variantKind      OrderFileVariantKind @default(ORIGINAL) @map("variant_kind")
+  sourceFileId     Int?                 @map("source_file_id")
+  filterSnapshotId Int?                 @map("filter_snapshot_id")
+  sizeBytes        BigInt               @map("size_bytes")
+  sortOrder        Int                  @default(0) @map("sort_order")
+  createdAt        DateTime             @default(now()) @map("created_at")
+  order            Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sourceFile       OrderFile?           @relation("OrderFileVariants", fields: [sourceFileId], references: [id], onDelete: Cascade)
+  variants         OrderFile[]          @relation("OrderFileVariants")
+  filterSnapshot   OrderFilterSnapshot? @relation(fields: [filterSnapshotId], references: [id], onDelete: SetNull)
+  renderJob        FilterRenderJob?
 
-  @@index([orderId, sortOrder])
   @@unique([orderId, storageKey])
+  @@unique([sourceFileId, filterSnapshotId])
+  @@index([orderId, sortOrder])
+  @@index([sourceFileId])
   @@map("order_files")
 }
 
+model FilterTemplate {
+  id           Int                   @id @default(autoincrement())
+  name         String                @unique
+  previewColor String?               @default("#FFFFFF") @map("preview_color")
+  isActive     Boolean               @default(true) @map("is_active")
+  values       FilterTemplateValue[]
+  packageItems FilterPackageItem[]
+  snapshots    OrderFilterSnapshot[]
+  createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @updatedAt @map("updated_at")
+
+  @@map("filter_templates")
+}
+
+model FilterTemplateValue {
+  id         Int            @id @default(autoincrement())
+  templateId Int            @map("template_id")
+  filterType String         @map("filter_type")
+  value      String
+  template   FilterTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, filterType])
+  @@map("filter_template_values")
+}
+
+model FilterPackage {
+  id        Int                 @id @default(autoincrement())
+  name      String              @unique
+  isActive  Boolean             @default(true) @map("is_active")
+  items     FilterPackageItem[]
+  orders    Order[]
+  createdAt DateTime            @default(now()) @map("created_at")
+  updatedAt DateTime            @updatedAt @map("updated_at")
+
+  @@map("filter_packages")
+}
+
+model FilterPackageItem {
+  id               Int            @id @default(autoincrement())
+  packageId        Int            @map("package_id")
+  filterTemplateId Int            @map("filter_template_id")
+  sortOrder        Int            @default(0) @map("sort_order")
+  package          FilterPackage  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  filterTemplate   FilterTemplate @relation(fields: [filterTemplateId], references: [id], onDelete: Restrict)
+
+  @@unique([packageId, filterTemplateId])
+  @@unique([packageId, sortOrder])
+  @@map("filter_package_items")
+}
+
+model OrderFilterSnapshot {
+  id               Int             @id @default(autoincrement())
+  orderId          Int             @map("order_id")
+  filterTemplateId Int?            @map("filter_template_id")
+  filterName       String          @map("filter_name")
+  filterCss        String          @map("filter_css")
+  sortOrder        Int             @map("sort_order")
+  order            Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  filterTemplate   FilterTemplate? @relation(fields: [filterTemplateId], references: [id], onDelete: SetNull)
+  files            OrderFile[]
+
+  @@unique([orderId, sortOrder])
+  @@map("order_filter_snapshots")
+}
+
+model FilterRenderJob {
+  id           Int                @id @default(autoincrement())
+  sourceFileId Int                @unique @map("source_file_id")
+  status       FilterRenderStatus @default(PENDING)
+  attemptCount Int                @default(0) @map("attempt_count")
+  availableAt  DateTime           @default(now()) @map("available_at")
+  lockedAt     DateTime?          @map("locked_at")
+  lockedBy     String?            @map("locked_by")
+  lastError    String?            @map("last_error")
+  completedAt  DateTime?          @map("completed_at")
+  sourceFile   OrderFile          @relation(fields: [sourceFileId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  @@index([status, availableAt])
+  @@map("filter_render_jobs")
+}
+
 model AppSetting {
-  id           Int      @id @default(autoincrement())
-  pricePerPrint Decimal  @map("price_per_print") @db.Decimal(12, 2)
-  whatsappTemplate String  @default("Halo {customerName}, hasil foto/video kamu sudah siap. Silakan download melalui link berikut: {link}. Terima kasih sudah menggunakan Poosefilm.") @map("whatsapp_template")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id               Int      @id @default(autoincrement())
+  pricePerPrint    Decimal  @map("price_per_print") @db.Decimal(12, 2)
+  whatsappTemplate String   @default("Halo {customerName}, hasil foto/video kamu sudah siap. Silakan download melalui link berikut: {link}. Terima kasih sudah menggunakan Poosefilm.") @map("whatsapp_template")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
 }

@@ -23,6 +23,16 @@ describe("public order portal", () => {
     expect(serializeOrderMedia("PB260903-01020304", [{ id: 4, originalName: "preview.jpg", contentType: "image/jpeg", mediaType: "IMAGE", sizeBytes: BigInt(42) }])).toEqual([{ id: 4, originalName: "preview.jpg", contentType: "image/jpeg", mediaType: "IMAGE", sizeBytes: 42, downloadUrl: "/api/order/PB260903-01020304/file/4/download" }]);
   });
 
+  it("keeps completed filtered variants when they have no render job relation", () => {
+    const result = serializeOrderMedia("PB260903-01020304", [
+      { id: 4, originalName: "original.jpg", contentType: "image/jpeg", mediaType: "IMAGE", sizeBytes: BigInt(42), variantKind: "ORIGINAL", renderJob: { status: "COMPLETED" } },
+      { id: 5, originalName: "original - Warm.jpg", contentType: "image/jpeg", mediaType: "IMAGE", sizeBytes: BigInt(40), variantKind: "FILTERED", filterSnapshot: { filterName: "Warm" }, renderJob: null },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result[1]).toMatchObject({ id: 5, variantKind: "FILTERED", filterName: "Warm" });
+  });
+
   it("uses compact media classes for authenticated admin previews", () => {
     expect(getMediaGalleryClasses("compact")).toEqual({
       grid: "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",

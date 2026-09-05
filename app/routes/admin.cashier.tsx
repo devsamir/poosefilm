@@ -14,13 +14,16 @@ import {
 
 import { Receipt } from '~/components/Receipt';
 import { requireUser } from '~/services/auth.server';
-import { createOrder } from '~/services/orders.server';
+import { createOrder, parseOptionalFilterPackageId } from '~/services/orders.server';
+import { getActiveFilterPackages } from '~/services/filter-packages.server';
 import { getPricePerPrint } from '~/services/settings.server';
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireUser(request);
+  const [price, filterPackages] = await Promise.all([getPricePerPrint(), getActiveFilterPackages()]);
   return json({
-    price: Number(await getPricePerPrint()),
+    price: Number(price),
+    filterPackages,
     publicBaseUrl: process.env.PUBLIC_ORDER_BASE_URL || 'http://localhost:3000',
   });
 }
@@ -35,6 +38,7 @@ export async function action({ request }: ActionFunctionArgs) {
         whatsapp: String(formData.get('whatsapp') || ''),
         quantity: String(formData.get('quantity') || ''),
         isRealTransaction: formData.get('isRealTransaction') === 'on',
+        filterPackageId: parseOptionalFilterPackageId(String(formData.get('filterPackageId') || '')),
       },
       user.id
     );
@@ -66,7 +70,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function CashierPage() {
-  const { price } = useLoaderData<typeof loader>();
+  const { price, filterPackages } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const [quantity, setQuantity] = useState(1);
@@ -124,6 +128,18 @@ export default function CashierPage() {
                 }
                 required
               />
+            </label>
+            <label className="field-label sm:col-span-2">
+              Paket filter
+              <select className="field-input" name="filterPackageId" defaultValue="">
+                <option value="">Original saja</option>
+                {filterPackages.map((filterPackage) => (
+                  <option key={filterPackage.id} value={filterPackage.id}>
+                    {filterPackage.name} ({filterPackage.filters.length} filter)
+                  </option>
+                ))}
+              </select>
+              <span className="mt-1 block text-xs font-normal text-[#968b7e]">Setiap filter dibuat dari original, tidak berantai.</span>
             </label>
             <label className="flex items-center gap-3 self-end rounded-xl border border-[#e6ded2] p-4 sm:col-span-2">
               <input className="h-4 w-4 accent-[#25231f]" type="checkbox" name="isRealTransaction" checked={isRealTransaction} onChange={(event) => setIsRealTransaction(event.target.checked)} />

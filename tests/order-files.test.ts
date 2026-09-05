@@ -34,6 +34,7 @@ describe("order media uploads", () => {
   it("returns an upload-waiting order when its last ready file is deleted", () => {
     expect(getOrderStatusAfterFileDeletion("READY", 0)).toBe("WAITING_UPLOAD");
     expect(getOrderStatusAfterFileDeletion("READY", 1)).toBe("READY");
+    expect(getOrderStatusAfterFileDeletion("PROCESSING_FILTER", 0)).toBe("WAITING_UPLOAD");
     expect(getOrderStatusAfterFileDeletion("DELIVERED", 0)).toBe("DELIVERED");
   });
 

@@ -34,6 +34,18 @@ textarea {
   .status-pill { @apply rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em]; }
   .status-ready { @apply bg-emerald-50 text-emerald-700; }
   .status-waiting { @apply bg-amber-50 text-amber-700; }
+  .settings-card { @apply rounded-[1.5rem] border border-[#e5ddce] bg-[#fffdf9] p-5 shadow-[0_8px_30px_rgba(31,37,40,0.04)] sm:p-6; }
+  .settings-card-accent { @apply bg-[#fbf2df]; }
+  .settings-label { @apply text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a7b67]; }
+  .settings-icon { @apply flex h-10 w-10 items-center justify-center rounded-full bg-[#d99a3d] text-xs font-bold text-[#fffdf9]; }
+  .settings-icon-green { @apply bg-[#b8c6b0] text-[#3d533d]; }
+  .settings-action { @apply inline-flex items-center gap-2 text-xs font-semibold text-[#1f2528] transition hover:text-[#b17a2c] focus:outline-none focus:ring-2 focus:ring-[#d99a3d]/40; }
+  .settings-section { @apply rounded-[1.75rem] border border-[#e5ddce] bg-[#fffdf9] p-5 sm:p-7; }
+  .library-card { @apply rounded-2xl border border-[#ebe3d6] bg-white p-4 transition hover:-translate-y-0.5 hover:border-[#d8c8ae] hover:shadow-[0_10px_28px_rgba(31,37,40,0.06)]; }
+  .swatch { @apply mt-0.5 h-9 w-9 shrink-0 rounded-xl border border-black/5 shadow-inner; }
+  .package-mark { @apply flex h-8 w-8 items-center justify-center rounded-full bg-[#eef2eb] text-sm text-[#60725d]; }
+  .filter-chip { @apply rounded-full border border-[#e5ddce] bg-[#faf7f1] px-2.5 py-1 text-xs text-[#667177]; }
+  .empty-library { @apply rounded-2xl border border-dashed border-[#d8cfc0] bg-[#faf7f1] p-8 text-center text-sm text-[#879197]; }
 }
 
 @media print {

@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 
 import type { AuthUser } from "~/services/auth.server";
 import { canAccessSuperadmin } from "~/services/auth.server";
+import { getActiveFilterPackages } from "~/services/filter-packages.server";
+import { canDeliverOrder } from "~/services/filter-render-jobs.server";
 import { prisma } from "~/services/prisma.server";
 import { deleteObjectIfPresent } from "~/services/r2.server";
 import { getPricePerPrint } from "~/services/settings.server";
@@ -18,14 +20,26 @@ export function validateOrderInput(input: { customerName: string; whatsapp: stri
   return { customerName, whatsapp, quantity };
 }
 
-export async function createOrder(input: { customerName: string; whatsapp: string; quantity: string; isRealTransaction?: boolean }, createdById: number) {
+export function parseOptionalFilterPackageId(value: string | null | undefined) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return undefined;
+  const id = Number(normalized);
+  if (!Number.isInteger(id) || id < 1) throw new Error("Paket filter tidak valid.");
+  return id;
+}
+
+export async function createOrder(input: { customerName: string; whatsapp: string; quantity: string; isRealTransaction?: boolean; filterPackageId?: number }, createdById: number) {
   const details = validateOrderInput(input);
   const price = Number(await getPricePerPrint());
   const snapshot = buildOrderSnapshot({ quantity: details.quantity, unitPrice: price, isRealTransaction: input.isRealTransaction !== false });
+  const selectedPackage = input.filterPackageId
+    ? (await getActiveFilterPackages()).find((filterPackage) => filterPackage.id === input.filterPackageId)
+    : undefined;
+  if (input.filterPackageId && !selectedPackage) throw new Error("Paket filter tidak ditemukan atau sudah nonaktif.");
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
-      return await prisma.order.create({
+      return await prisma.$transaction(async (transaction) => transaction.order.create({
         data: {
           code: generatePublicOrderCode(),
           customerName: details.customerName,
@@ -34,13 +48,15 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
           unitPrice: snapshot.unitPrice,
           totalAmount: snapshot.totalAmount,
           isRealTransaction: snapshot.isRealTransaction,
+          filterPackageId: selectedPackage?.id,
           paymentMethod: snapshot.paymentMethod,
           paymentStatus: snapshot.paymentStatus,
           status: snapshot.status,
           createdById,
+          ...(selectedPackage ? { filterSnapshots: { create: selectedPackage.snapshots.map((filter) => ({ filterTemplateId: filter.filterId, filterName: filter.filterName, filterCss: filter.css, sortOrder: filter.sortOrder })) } } : {}),
         },
-        include: { files: true },
-      });
+        include: { files: true, filterSnapshots: true },
+      }));
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002" || attempt === 4) throw error;
     }
@@ -51,7 +67,7 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
 export async function getOrderByCode(code: string) {
   return prisma.order.findUnique({
     where: { code },
-    include: { files: { orderBy: { sortOrder: "asc" } } },
+    include: { files: { include: { filterSnapshot: true, renderJob: { select: { status: true, lastError: true } } }, orderBy: { sortOrder: "asc" } }, filterSnapshots: { orderBy: { sortOrder: "asc" } }, filterPackage: true },
   });
 }
 
@@ -59,6 +75,7 @@ export async function markOrderDelivered(id: number) {
   const order = await prisma.order.findUnique({ where: { id }, include: { _count: { select: { files: true } } } });
   if (!order) throw new Error("Order tidak ditemukan.");
   if (!order._count.files) throw new Error("Order belum memiliki file.");
+  if (!(await canDeliverOrder(id))) throw new Error("Filter masih diproses atau gagal. Tunggu sampai selesai sebelum menandai order.");
   return prisma.order.update({ where: { id }, data: { status: "DELIVERED", deliveredAt: new Date() } });
 }
 
