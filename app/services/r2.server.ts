@@ -1,5 +1,6 @@
 import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { Readable } from "node:stream";
 
 let client: S3Client | undefined;
 
@@ -35,6 +36,13 @@ export async function getObjectBuffer(key: string) {
   const response = await r2Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   if (!response.Body) throw new Error("Object R2 tidak memiliki isi.");
   return Buffer.from(await response.Body.transformToByteArray());
+}
+
+export async function getObjectStream(key: string) {
+  const { client: r2Client, bucket } = getClient();
+  const response = await r2Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!response.Body) throw new Error("Object R2 tidak memiliki isi.");
+  return response.Body as Readable;
 }
 
 export async function putObject(input: { key: string; body: Buffer; contentType: string }) {
