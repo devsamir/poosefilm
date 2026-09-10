@@ -42,6 +42,7 @@ export async function getObjectStream(key: string) {
   const { client: r2Client, bucket } = getClient();
   const response = await r2Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
   if (!response.Body) throw new Error("Object R2 tidak memiliki isi.");
+  // Body is a Node Readable because getClient() uses the default NodeHttpHandler (no custom requestHandler configured).
   return response.Body as Readable;
 }
 
