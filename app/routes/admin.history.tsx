@@ -58,9 +58,17 @@ export default function HistoryPage() {
   const [searchParams] = useSearchParams();
   const [uploadingOrderCode, setUploadingOrderCode] = useState<string | null>(null);
   const query = searchParams.get("q") || "";
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
+  const exportHref = exportFrom && exportTo ? `/api/history/export-zip?${new URLSearchParams({ from: exportFrom, to: exportTo, ...(query ? { q: query } : {}) }).toString()}` : undefined;
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="eyebrow">OPERASIONAL</p><h1 className="page-title">Riwayat order</h1><p className="page-subtitle">Order yang sudah selesai dan link hasilnya telah tersedia.</p></div><Form method="get" className="flex gap-2"><input className="field-input min-w-64" name="q" defaultValue={query} placeholder="Cari nama, kode, nomor HP..." /><button className="button-secondary" type="submit">Cari</button></Form></div>
+    <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#e6ded2] bg-white p-4">
+      <div><label className="block text-xs text-[#84796c]" htmlFor="export-from">Dari tanggal</label><input id="export-from" type="date" className="field-input" value={exportFrom} onChange={(event) => setExportFrom(event.target.value)} /></div>
+      <div><label className="block text-xs text-[#84796c]" htmlFor="export-to">Sampai tanggal</label><input id="export-to" type="date" className="field-input" value={exportTo} onChange={(event) => setExportTo(event.target.value)} /></div>
+      {exportHref ? <a className="button-secondary text-xs" href={exportHref}>Download ZIP</a> : <span className="button-secondary text-xs pointer-events-none opacity-40" aria-disabled="true">Download ZIP</span>}
+    </div>
     {actionData?.error ? <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{actionData.error}</p> : null}
     {orders.length ? <div className="grid gap-4">{orders.map((order) => {
       const deleting = navigation.state === "submitting" && navigation.formData?.get("id") === String(order.id);

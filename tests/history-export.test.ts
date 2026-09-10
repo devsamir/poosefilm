@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { buildHistoryZipEntryName, buildHistoryZipFilename, parseHistoryDateRange } from "~/services/reports.server";
@@ -40,5 +43,14 @@ describe("history ZIP export helpers", () => {
   it("builds a sanitized, collision-safe per-file entry path inside the zip", () => {
     expect(buildHistoryZipEntryName("PB260903-01020304", "Budi Santoso", 7, "photo one.jpg")).toBe("PB260903-01020304_Budi-Santoso/7-photo-one.jpg");
     expect(buildHistoryZipEntryName("PB260903-01020304", "A/B", 12, "clip.mp4")).toBe("PB260903-01020304_A-B/12-clip.mp4");
+  });
+});
+
+describe("history page export UI", () => {
+  it("wires up the date-range export controls on the history page", () => {
+    const historyPage = readFileSync(resolve(process.cwd(), "app/routes/admin.history.tsx"), "utf8");
+    expect(historyPage).toContain('type="date"');
+    expect(historyPage).toContain("/api/history/export-zip");
+    expect(historyPage).toContain("Download ZIP");
   });
 });
