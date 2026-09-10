@@ -42,7 +42,11 @@ export async function listDeliveredOrders(query: string, requestedPage = 1, page
 
 export async function listDeliveredOrdersInRange(start: Date, end: Date, query: string) {
   const where = buildDeliveredOrdersWhere(query.trim(), { start, end });
-  return prisma.order.findMany({ where, include: { files: { orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "asc" } });
+  return prisma.order.findMany({
+    where,
+    select: { code: true, customerName: true, files: { select: { id: true, originalName: true, storageKey: true }, orderBy: { sortOrder: "asc" } } },
+    orderBy: { createdAt: "asc" },
+  });
 }
 
 function getDateRange(date: string) {
