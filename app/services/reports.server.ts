@@ -24,13 +24,25 @@ export function getHistoryPagination(requestedPage: number, pageSize: number, to
   return { page, pageSize: normalizedPageSize, totalPages, skip: (page - 1) * normalizedPageSize };
 }
 
+function buildDeliveredOrdersWhere(search: string, dateRange?: { start: Date; end: Date }) {
+  return {
+    status: "DELIVERED" as const,
+    ...(dateRange ? { createdAt: { gte: dateRange.start, lt: dateRange.end } } : {}),
+    ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" as const } }, { customerName: { contains: search, mode: "insensitive" as const } }, { whatsapp: { contains: search } }] } : {}),
+  };
+}
+
 export async function listDeliveredOrders(query: string, requestedPage = 1, pageSize = 12) {
-  const search = query.trim();
-  const where = { status: "DELIVERED" as const, ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" as const } }, { customerName: { contains: search, mode: "insensitive" as const } }, { whatsapp: { contains: search } }] } : {}) };
+  const where = buildDeliveredOrdersWhere(query.trim());
   const total = await prisma.order.count({ where });
   const pagination = getHistoryPagination(requestedPage, pageSize, total);
   const orders = await prisma.order.findMany({ where, include: { _count: { select: { files: true } }, files: { include: { filterSnapshot: true, renderJob: { select: { status: true, lastError: true } } }, orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "desc" }, skip: pagination.skip, take: pagination.pageSize });
   return { orders: orders.map((order) => ({ ...order, files: serializeOrderMedia(order.code, order.files) })), total, pagination };
+}
+
+export async function listDeliveredOrdersInRange(start: Date, end: Date, query: string) {
+  const where = buildDeliveredOrdersWhere(query.trim(), { start, end });
+  return prisma.order.findMany({ where, include: { files: { orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "asc" } });
 }
 
 function getDateRange(date: string) {
