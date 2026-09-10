@@ -1,4 +1,5 @@
 import { getOrderByCode } from "~/services/orders.server";
+import { sanitizeFilename } from "~/services/order-files.server";
 import { prisma } from "~/services/prisma.server";
 import { serializeOrderMedia } from "~/utils/media";
 
@@ -38,6 +39,26 @@ function getDateRange(date: string) {
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
   return { start, end };
+}
+
+const HISTORY_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export function parseHistoryDateRange(from: string, to: string) {
+  if (!HISTORY_DATE_PATTERN.test(from) || !HISTORY_DATE_PATTERN.test(to)) throw new Error("Rentang tanggal tidak valid.");
+  const start = new Date(`${from}T00:00:00`);
+  const toDate = new Date(`${to}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(toDate.getTime()) || start.getTime() > toDate.getTime()) throw new Error("Rentang tanggal tidak valid.");
+  const end = new Date(toDate);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
+
+export function buildHistoryZipFilename(from: string, to: string) {
+  return `riwayat_${from}_${to}.zip`;
+}
+
+export function buildHistoryZipEntryName(orderCode: string, customerName: string, fileId: number, originalName: string) {
+  return `${orderCode}_${sanitizeFilename(customerName)}/${fileId}-${sanitizeFilename(originalName)}`;
 }
 
 export async function getDailySummary(date: string) {
