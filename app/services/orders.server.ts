@@ -9,6 +9,7 @@ import { deleteObjectIfPresent } from "~/services/r2.server";
 import { getPricePerPrint } from "~/services/settings.server";
 import { buildOrderSnapshot } from "~/utils/order-invariants";
 import { generatePublicOrderCode } from "~/utils/public-code";
+import { normalizeWhatsappNumber } from "~/utils/whatsapp";
 
 export function validateOrderInput(input: { customerName: string; whatsapp: string; quantity: string }) {
   const customerName = input.customerName.trim();
@@ -16,6 +17,9 @@ export function validateOrderInput(input: { customerName: string; whatsapp: stri
   const quantity = Number(input.quantity);
   if (!customerName || !whatsapp || !Number.isInteger(quantity) || quantity < 1) {
     throw new Error("Nama, nomor WhatsApp, dan jumlah cetak wajib valid.");
+  }
+  if (!normalizeWhatsappNumber(whatsapp)) {
+    throw new Error("Nomor WhatsApp harus berisi angka yang valid.");
   }
   return { customerName, whatsapp, quantity };
 }

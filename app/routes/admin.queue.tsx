@@ -90,7 +90,7 @@ export default function QueuePage() {
             <button className="button-secondary" type="button" onClick={() => setRecordingOrderCode(order.code)} disabled={orderUploading}>
               {orderUploading ? "Upload berjalan..." : "Rekam webcam"}
             </button>
-            {order.files.length ? <a className="button-secondary" href={order.whatsappUrl} target="_blank" rel="noreferrer">Kirim WA</a> : null}
+            {order.files.length ? (order.whatsappUrl ? <a className="button-secondary" href={order.whatsappUrl} target="_blank" rel="noreferrer">Kirim WA</a> : <span className="button-secondary pointer-events-none opacity-40" aria-disabled="true" title="Nomor WhatsApp tidak valid, perbaiki dulu">Kirim WA</span>) : null}
             <Form method="post">
               <input type="hidden" name="intent" value="delivered" />
               <input type="hidden" name="id" value={order.id} />
