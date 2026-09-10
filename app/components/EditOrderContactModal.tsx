@@ -24,7 +24,7 @@ export function EditOrderContactModal({ order, onClose }: { order: EditableOrder
           <h2 className="mt-2 font-display text-2xl" id={`edit-contact-title-${order.code}`}>Edit data customer</h2>
           <p className="mt-2 text-sm text-[#84796c]">Order {order.code}</p>
         </div>
-        <button className="button-secondary text-xs" type="button" onClick={onClose}>Tutup</button>
+        <button className="button-secondary text-xs" type="button" onClick={onClose} disabled={saving}>Tutup</button>
       </div>
       <fetcher.Form method="post" className="mt-4 space-y-3">
         <input type="hidden" name="intent" value="edit-contact" />
