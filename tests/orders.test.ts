@@ -40,6 +40,16 @@ describe('order creation', () => {
     ).toThrow();
   });
 
+  it('rejects a WhatsApp number with no digits', () => {
+    expect(() =>
+      validateOrderInput({
+        customerName: 'Husein',
+        whatsapp: '-',
+        quantity: '1',
+      })
+    ).toThrow();
+  });
+
   it('normalizes an optional filter package selection from form data', () => {
     expect(parseOptionalFilterPackageId(undefined)).toBeUndefined();
     expect(parseOptionalFilterPackageId('')).toBeUndefined();

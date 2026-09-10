@@ -11,15 +11,19 @@ import { buildOrderSnapshot } from "~/utils/order-invariants";
 import { generatePublicOrderCode } from "~/utils/public-code";
 import { normalizeWhatsappNumber } from "~/utils/whatsapp";
 
-export function validateOrderInput(input: { customerName: string; whatsapp: string; quantity: string }) {
+function validateContactInput(input: { customerName: string; whatsapp: string }) {
   const customerName = input.customerName.trim();
   const whatsapp = input.whatsapp.trim();
+  if (!customerName) throw new Error("Nama wajib diisi.");
+  if (!normalizeWhatsappNumber(whatsapp)) throw new Error("Nomor WhatsApp harus berisi angka yang valid.");
+  return { customerName, whatsapp };
+}
+
+export function validateOrderInput(input: { customerName: string; whatsapp: string; quantity: string }) {
+  const { customerName, whatsapp } = validateContactInput(input);
   const quantity = Number(input.quantity);
-  if (!customerName || !whatsapp || !Number.isInteger(quantity) || quantity < 1) {
-    throw new Error("Nama, nomor WhatsApp, dan jumlah cetak wajib valid.");
-  }
-  if (!normalizeWhatsappNumber(whatsapp)) {
-    throw new Error("Nomor WhatsApp harus berisi angka yang valid.");
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new Error("Jumlah cetak wajib valid.");
   }
   return { customerName, whatsapp, quantity };
 }
@@ -81,6 +85,13 @@ export async function markOrderDelivered(id: number) {
   if (!order._count.files) throw new Error("Order belum memiliki file.");
   if (!(await canDeliverOrder(id))) throw new Error("Filter masih diproses atau gagal. Tunggu sampai selesai sebelum menandai order.");
   return prisma.order.update({ where: { id }, data: { status: "DELIVERED", deliveredAt: new Date() } });
+}
+
+export async function updateOrderContact(id: number, input: { customerName: string; whatsapp: string }) {
+  const order = await prisma.order.findUnique({ where: { id } });
+  if (!order) throw new Error("Order tidak ditemukan.");
+  const details = validateContactInput(input);
+  return prisma.order.update({ where: { id }, data: { customerName: details.customerName, whatsapp: details.whatsapp } });
 }
 
 export async function deleteDeliveredOrder(id: number, user: AuthUser) {
