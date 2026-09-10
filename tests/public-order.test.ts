@@ -87,7 +87,8 @@ describe("public order portal", () => {
     expect(summaryPage).not.toContain("Cetak rekap");
     expect(publicPage).not.toContain('canDelete');
     expect(gallery).toContain("window.confirm");
-    expect(historyPage).toContain("requireSuperadmin");
+    expect(historyPage).toContain("requireUser");
+    expect(ordersService).toContain("Hanya superadmin yang dapat menghapus riwayat");
     expect(historyPage).toContain('name="intent" value="delete"');
     expect(historyPage).toContain("deleteDeliveredOrder");
     expect(historyPage).toContain("totalPages");
