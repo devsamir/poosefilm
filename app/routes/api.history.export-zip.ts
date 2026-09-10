@@ -37,7 +37,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       }
     }
   }
-  archive.finalize();
+  archive.finalize().catch((error) => console.warn("Gagal membuat ZIP riwayat", error));
 
   return new Response(Readable.toWeb(archive) as unknown as ReadableStream, {
     headers: {
