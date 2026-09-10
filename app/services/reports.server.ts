@@ -24,7 +24,7 @@ export function getHistoryPagination(requestedPage: number, pageSize: number, to
   return { page, pageSize: normalizedPageSize, totalPages, skip: (page - 1) * normalizedPageSize };
 }
 
-function buildDeliveredOrdersWhere(search: string, dateRange?: { start: Date; end: Date }) {
+export function buildDeliveredOrdersWhere(search: string, dateRange?: { start: Date; end: Date }) {
   return {
     status: "DELIVERED" as const,
     ...(dateRange ? { createdAt: { gte: dateRange.start, lt: dateRange.end } } : {}),

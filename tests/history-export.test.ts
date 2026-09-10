@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { buildHistoryZipEntryName, buildHistoryZipFilename, parseHistoryDateRange } from "~/services/reports.server";
+import { buildDeliveredOrdersWhere, buildHistoryZipEntryName, buildHistoryZipFilename, parseHistoryDateRange } from "~/services/reports.server";
 
 describe("history ZIP export helpers", () => {
   it("parses a valid inclusive date range into local day boundaries", () => {
@@ -43,6 +43,46 @@ describe("history ZIP export helpers", () => {
   it("builds a sanitized, collision-safe per-file entry path inside the zip", () => {
     expect(buildHistoryZipEntryName("PB260903-01020304", "Budi Santoso", 7, "photo one.jpg")).toBe("PB260903-01020304_Budi-Santoso/7-photo-one.jpg");
     expect(buildHistoryZipEntryName("PB260903-01020304", "A/B", 12, "clip.mp4")).toBe("PB260903-01020304_A-B/12-clip.mp4");
+  });
+});
+
+describe("delivered orders where-clause", () => {
+  it("always scopes to DELIVERED orders with no date range or search", () => {
+    expect(buildDeliveredOrdersWhere("")).toEqual({ status: "DELIVERED" });
+  });
+
+  it("adds an inclusive/exclusive createdAt range only when one is given", () => {
+    const start = new Date("2026-09-01T00:00:00");
+    const end = new Date("2026-09-10T00:00:00");
+    expect(buildDeliveredOrdersWhere("", { start, end })).toEqual({
+      status: "DELIVERED",
+      createdAt: { gte: start, lt: end },
+    });
+  });
+
+  it("adds a case-insensitive OR search across code/customerName/whatsapp only when given", () => {
+    expect(buildDeliveredOrdersWhere("budi")).toEqual({
+      status: "DELIVERED",
+      OR: [
+        { code: { contains: "budi", mode: "insensitive" } },
+        { customerName: { contains: "budi", mode: "insensitive" } },
+        { whatsapp: { contains: "budi" } },
+      ],
+    });
+  });
+
+  it("combines the date range and search when both are given", () => {
+    const start = new Date("2026-09-01T00:00:00");
+    const end = new Date("2026-09-10T00:00:00");
+    expect(buildDeliveredOrdersWhere("budi", { start, end })).toEqual({
+      status: "DELIVERED",
+      createdAt: { gte: start, lt: end },
+      OR: [
+        { code: { contains: "budi", mode: "insensitive" } },
+        { customerName: { contains: "budi", mode: "insensitive" } },
+        { whatsapp: { contains: "budi" } },
+      ],
+    });
   });
 });
 
