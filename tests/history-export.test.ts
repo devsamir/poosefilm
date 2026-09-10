@@ -25,6 +25,14 @@ describe("history ZIP export helpers", () => {
     expect(() => parseHistoryDateRange("2026-9-1", "2026-09-09")).toThrow("Rentang tanggal tidak valid.");
   });
 
+  it("rejects an invalid calendar date that rolls forward instead of throwing", () => {
+    expect(() => parseHistoryDateRange("2026-02-30", "2026-02-30")).toThrow("Rentang tanggal tidak valid.");
+  });
+
+  it("rejects a rolling-month date like April 31st", () => {
+    expect(() => parseHistoryDateRange("2026-04-31", "2026-04-31")).toThrow("Rentang tanggal tidak valid.");
+  });
+
   it("builds a zip filename from the raw from/to strings", () => {
     expect(buildHistoryZipFilename("2026-09-01", "2026-09-09")).toBe("riwayat_2026-09-01_2026-09-09.zip");
   });

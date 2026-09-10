@@ -43,11 +43,19 @@ function getDateRange(date: string) {
 
 const HISTORY_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+function toDateOnlyString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function parseHistoryDateRange(from: string, to: string) {
   if (!HISTORY_DATE_PATTERN.test(from) || !HISTORY_DATE_PATTERN.test(to)) throw new Error("Rentang tanggal tidak valid.");
   const start = new Date(`${from}T00:00:00`);
   const toDate = new Date(`${to}T00:00:00`);
   if (Number.isNaN(start.getTime()) || Number.isNaN(toDate.getTime()) || start.getTime() > toDate.getTime()) throw new Error("Rentang tanggal tidak valid.");
+  if (toDateOnlyString(start) !== from || toDateOnlyString(toDate) !== to) throw new Error("Rentang tanggal tidak valid.");
   const end = new Date(toDate);
   end.setDate(end.getDate() + 1);
   return { start, end };
