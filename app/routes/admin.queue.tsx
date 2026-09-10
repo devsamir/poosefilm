@@ -6,10 +6,11 @@ import { MediaUploader } from "~/components/MediaUploader";
 import { MediaGallery } from "~/components/MediaGallery";
 import { isUploadInProgress, useUploadManager } from "~/components/UploadManager";
 import { WebcamRecorder } from "~/components/WebcamRecorder";
+import { EditOrderContactModal } from "~/components/EditOrderContactModal";
 import { requireUser } from "~/services/auth.server";
 import { listWaitingOrders } from "~/services/order-files.server";
 import { getWhatsappTemplate } from "~/services/settings.server";
-import { markOrderDelivered } from "~/services/orders.server";
+import { markOrderDelivered, updateOrderContact } from "~/services/orders.server";
 import { buildWhatsAppUrl } from "~/utils/whatsapp";
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -24,8 +25,19 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const user = await requireUser(request);
   const formData = await request.formData();
-  if (String(formData.get("intent")) === "delivered") {
+  const intent = String(formData.get("intent"));
+  if (intent === "delivered") {
     try { await markOrderDelivered(Number(formData.get("id"))); } catch (error) { return json({ error: error instanceof Error ? error.message : "Order belum dapat diselesaikan." }, { status: 400 }); }
+  }
+  if (intent === "edit-contact") {
+    try {
+      await updateOrderContact(Number(formData.get("id")), {
+        customerName: String(formData.get("customerName") || ""),
+        whatsapp: String(formData.get("whatsapp") || ""),
+      });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Gagal menyimpan perubahan." }, { status: 400 });
+    }
   }
   return json({ success: true, userId: user.id });
 }
@@ -37,6 +49,8 @@ export default function QueuePage() {
   const { jobs } = useUploadManager();
   const [recordingOrderCode, setRecordingOrderCode] = useState<string | null>(null);
   const recordingOrder = orders.find((order) => order.code === recordingOrderCode);
+  const [editingOrderCode, setEditingOrderCode] = useState<string | null>(null);
+  const editingOrder = orders.find((order) => order.code === editingOrderCode);
 
   useEffect(() => {
     if (!orders.some((order) => order.status === "PROCESSING_FILTER" || order.filterProcessing)) return undefined;
@@ -90,6 +104,7 @@ export default function QueuePage() {
             <button className="button-secondary" type="button" onClick={() => setRecordingOrderCode(order.code)} disabled={orderUploading}>
               {orderUploading ? "Upload berjalan..." : "Rekam webcam"}
             </button>
+            <button className="button-secondary" type="button" onClick={() => setEditingOrderCode(order.code)}>Edit</button>
             {order.files.length ? (order.whatsappUrl ? <a className="button-secondary" href={order.whatsappUrl} target="_blank" rel="noreferrer">Kirim WA</a> : <span className="button-secondary pointer-events-none opacity-40" aria-disabled="true" title="Nomor WhatsApp tidak valid, perbaiki dulu">Kirim WA</span>) : null}
             <Form method="post">
               <input type="hidden" name="intent" value="delivered" />
@@ -105,5 +120,6 @@ export default function QueuePage() {
     </div>}
 
     {recordingOrder ? <WebcamRecorder orderCode={recordingOrder.code} customerName={recordingOrder.customerName} onClose={() => setRecordingOrderCode(null)} onUploadComplete={() => revalidator.revalidate()} /> : null}
+    {editingOrder ? <EditOrderContactModal order={editingOrder} onClose={() => setEditingOrderCode(null)} /> : null}
   </div>;
 }
