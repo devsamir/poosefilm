@@ -1,5 +1,5 @@
 import { Form } from "@remix-run/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { FILTER_CONFIGS, generateFilterCss, type FilterValueInput } from "~/utils/filter-domain";
 
@@ -8,33 +8,51 @@ const filterLabels: Record<string, string> = { grayscale: "Grayscale", sepia: "S
 export function FilterEditor({ intent, filter, submitLabel, sampleImage, onSampleImageChange }: { intent: "filter-create" | "filter-update"; filter?: { id: number; name: string; previewColor: string | null; values: FilterValueInput[] }; submitLabel: string; sampleImage: File | null; onSampleImageChange: (file: File | null) => void }) {
   const initialValues = Object.entries(FILTER_CONFIGS).map(([filterType, config]) => ({ filterType, value: filter?.values.find((value) => value.filterType === filterType)?.value || config.defaultValue }));
   const [values, setValues] = useState<FilterValueInput[]>(initialValues);
+  const [sampleImageUrl, setSampleImageUrl] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const filePickerRef = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const sampleImageUrl = useMemo(() => (sampleImage ? URL.createObjectURL(sampleImage) : null), [sampleImage]);
+  useEffect(() => {
+    if (!sampleImage) { setSampleImageUrl(null); return; }
+    const url = URL.createObjectURL(sampleImage);
+    setSampleImageUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [sampleImage]);
 
-  useEffect(() => () => { if (sampleImageUrl) URL.revokeObjectURL(sampleImageUrl); }, [sampleImageUrl]);
-  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
-  useEffect(() => { setPreviewUrl(null); setPreviewError(null); }, [sampleImage]);
+  useEffect(() => { if (previewUrl) return () => URL.revokeObjectURL(previewUrl); }, [previewUrl]);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    setPreviewUrl(null);
+    setPreviewError(null);
+  }, [sampleImage]);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
 
   async function handlePreview() {
     if (!sampleImage) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setIsPreviewing(true);
     setPreviewError(null);
     try {
       const body = new FormData();
       body.set("image", sampleImage);
       body.set("css", generateFilterCss(values));
-      const response = await fetch("/api/filter-templates/preview", { method: "POST", body });
-      if (!response.ok) throw new Error(await response.text());
+      const response = await fetch("/api/filter-templates/preview", { method: "POST", body, signal: controller.signal });
+      if (response.redirected) throw new Error("Sesi login habis. Muat ulang halaman lalu coba lagi.");
+      if (!response.ok) throw new Error((await response.text()) || "Gagal membuat preview.");
       const blob = await response.blob();
       setPreviewUrl(URL.createObjectURL(blob));
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       setPreviewError(error instanceof Error ? error.message : "Gagal membuat preview.");
     } finally {
-      setIsPreviewing(false);
+      if (abortRef.current === controller) setIsPreviewing(false);
     }
   }
 
