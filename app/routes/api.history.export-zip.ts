@@ -1,10 +1,26 @@
 import { type LoaderFunctionArgs } from "@remix-run/node";
-import archiver from "archiver";
+import archiver, { type Archiver } from "archiver";
 import { Readable } from "node:stream";
 
 import { requireUser } from "~/services/auth.server";
 import { getObjectStream } from "~/services/r2.server";
 import { buildHistoryZipEntryName, buildHistoryZipFilename, listDeliveredOrdersInRange, parseHistoryDateRange } from "~/services/reports.server";
+
+type HistoryOrder = Awaited<ReturnType<typeof listDeliveredOrdersInRange>>[number];
+
+async function appendHistoryFiles(archive: Archiver, orders: HistoryOrder[]) {
+  for (const order of orders) {
+    for (const file of order.files) {
+      try {
+        const stream = await getObjectStream(file.storageKey);
+        archive.append(stream, { name: buildHistoryZipEntryName(order.code, order.customerName, file.id, file.originalName) });
+      } catch (error) {
+        console.warn(`Lewati file yang gagal di-stream: ${order.code} - ${file.originalName}`, error);
+      }
+    }
+  }
+  await archive.finalize();
+}
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireUser(request);
@@ -27,17 +43,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
   archive.on("error", (error) => {
     console.warn("Gagal membuat ZIP riwayat", error);
   });
-  for (const order of orders) {
-    for (const file of order.files) {
-      try {
-        const stream = await getObjectStream(file.storageKey);
-        archive.append(stream, { name: buildHistoryZipEntryName(order.code, order.customerName, file.id, file.originalName) });
-      } catch (error) {
-        console.warn(`Lewati file yang gagal di-stream: ${order.code} - ${file.originalName}`, error);
-      }
-    }
-  }
-  archive.finalize().catch((error) => console.warn("Gagal membuat ZIP riwayat", error));
+
+  appendHistoryFiles(archive, orders).catch((error) => console.warn("Gagal membuat ZIP riwayat", error));
 
   return new Response(Readable.toWeb(archive) as unknown as ReadableStream, {
     headers: {
