@@ -36,7 +36,7 @@ export function parseOptionalFilterPackageId(value: string | null | undefined) {
   return id;
 }
 
-export async function createOrder(input: { customerName: string; whatsapp: string; quantity: string; isRealTransaction?: boolean; filterPackageId?: number }, createdById: number) {
+export async function createOrder(input: { customerName: string; whatsapp: string; quantity: string; isRealTransaction?: boolean; marketingConsent?: boolean; filterPackageId?: number }, createdById: number) {
   const details = validateOrderInput(input);
   const price = Number(await getPricePerPrint());
   const snapshot = buildOrderSnapshot({ quantity: details.quantity, unitPrice: price, isRealTransaction: input.isRealTransaction !== false });
@@ -56,6 +56,7 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
           unitPrice: snapshot.unitPrice,
           totalAmount: snapshot.totalAmount,
           isRealTransaction: snapshot.isRealTransaction,
+          marketingConsent: input.marketingConsent === true,
           filterPackageId: selectedPackage?.id,
           paymentMethod: snapshot.paymentMethod,
           paymentStatus: snapshot.paymentStatus,
