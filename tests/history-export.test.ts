@@ -84,6 +84,14 @@ describe("delivered orders where-clause", () => {
       ],
     });
   });
+
+  it("adds a marketingConsent filter only when consentOnly is requested", () => {
+    expect(buildDeliveredOrdersWhere("", undefined, true)).toEqual({
+      status: "DELIVERED",
+      marketingConsent: true,
+    });
+    expect(buildDeliveredOrdersWhere("", undefined, false)).toEqual({ status: "DELIVERED" });
+  });
 });
 
 describe("history page export UI", () => {

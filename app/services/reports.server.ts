@@ -24,16 +24,17 @@ export function getHistoryPagination(requestedPage: number, pageSize: number, to
   return { page, pageSize: normalizedPageSize, totalPages, skip: (page - 1) * normalizedPageSize };
 }
 
-export function buildDeliveredOrdersWhere(search: string, dateRange?: { start: Date; end: Date }) {
+export function buildDeliveredOrdersWhere(search: string, dateRange?: { start: Date; end: Date }, consentOnly?: boolean) {
   return {
     status: "DELIVERED" as const,
     ...(dateRange ? { createdAt: { gte: dateRange.start, lt: dateRange.end } } : {}),
+    ...(consentOnly ? { marketingConsent: true } : {}),
     ...(search ? { OR: [{ code: { contains: search, mode: "insensitive" as const } }, { customerName: { contains: search, mode: "insensitive" as const } }, { whatsapp: { contains: search } }] } : {}),
   };
 }
 
-export async function listDeliveredOrders(query: string, requestedPage = 1, pageSize = 12) {
-  const where = buildDeliveredOrdersWhere(query.trim());
+export async function listDeliveredOrders(query: string, requestedPage = 1, pageSize = 12, consentOnly = false) {
+  const where = buildDeliveredOrdersWhere(query.trim(), undefined, consentOnly);
   const total = await prisma.order.count({ where });
   const pagination = getHistoryPagination(requestedPage, pageSize, total);
   const orders = await prisma.order.findMany({ where, include: { _count: { select: { files: true } }, files: { include: { filterSnapshot: true, renderJob: { select: { status: true, lastError: true } } }, orderBy: { sortOrder: "asc" } } }, orderBy: { createdAt: "desc" }, skip: pagination.skip, take: pagination.pageSize });
