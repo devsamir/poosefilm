@@ -94,6 +94,7 @@ describe("public order portal", () => {
     expect(historyPage).toContain("deleteDeliveredOrder");
     expect(historyPage).toContain("totalPages");
     expect(ordersService).toContain("deleteObjectIfPresent");
+    expect(historyPage).toContain('name="consent"');
   });
 
   it("normalizes history pagination and clamps pages to the available range", () => {
