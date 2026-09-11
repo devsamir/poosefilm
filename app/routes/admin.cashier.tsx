@@ -38,6 +38,7 @@ export async function action({ request }: ActionFunctionArgs) {
         whatsapp: String(formData.get('whatsapp') || ''),
         quantity: String(formData.get('quantity') || ''),
         isRealTransaction: formData.get('isRealTransaction') === 'on',
+        marketingConsent: formData.get('marketingConsent') === 'on',
         filterPackageId: parseOptionalFilterPackageId(String(formData.get('filterPackageId') || '')),
       },
       user.id
@@ -75,12 +76,16 @@ export default function CashierPage() {
   const navigation = useNavigation();
   const [quantity, setQuantity] = useState(1);
   const [isRealTransaction, setIsRealTransaction] = useState(true);
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const order = actionData && 'order' in actionData ? actionData.order : null;
   const qrDataUrl =
     actionData && 'qrDataUrl' in actionData ? actionData.qrDataUrl : null;
   const error = actionData && 'error' in actionData ? actionData.error : null;
   useEffect(() => {
-    if (order?.code) setIsRealTransaction(true);
+    if (order?.code) {
+      setIsRealTransaction(true);
+      setMarketingConsent(false);
+    }
   }, [order?.code]);
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
@@ -140,6 +145,10 @@ export default function CashierPage() {
                 ))}
               </select>
               <span className="mt-1 block text-xs font-normal text-[#968b7e]">Setiap filter dibuat dari original, tidak berantai.</span>
+            </label>
+            <label className="flex items-center gap-3 self-end rounded-xl border border-[#e6ded2] p-4 sm:col-span-2">
+              <input className="h-4 w-4 accent-[#25231f]" type="checkbox" name="marketingConsent" checked={marketingConsent} onChange={(event) => setMarketingConsent(event.target.checked)} />
+              <span><span className="block text-sm font-semibold">Boleh di-share ke sosmed Poosefilm</span><span className="mt-1 block text-xs text-[#84796c]">Customer setuju fotonya dipakai untuk promosi di media sosial Poosefilm.</span></span>
             </label>
             <label className="flex items-center gap-3 self-end rounded-xl border border-[#e6ded2] p-4 sm:col-span-2">
               <input className="h-4 w-4 accent-[#25231f]" type="checkbox" name="isRealTransaction" checked={isRealTransaction} onChange={(event) => setIsRealTransaction(event.target.checked)} />

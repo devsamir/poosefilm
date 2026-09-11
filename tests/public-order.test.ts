@@ -81,6 +81,7 @@ describe("public order portal", () => {
     expect(uploader).toContain("useUploadManager");
     expect(uploadManager).toContain("tetap aktif saat pindah tab");
     expect(cashierPage).toContain('name="isRealTransaction"');
+    expect(cashierPage).toContain('name="marketingConsent"');
     expect(cashierPage).toContain("isRealTransaction");
     expect(reportsService).toContain("isRealTransaction");
     expect(settingsPage).toContain("whatsappTemplate");
