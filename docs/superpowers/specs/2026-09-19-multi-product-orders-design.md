@@ -34,7 +34,7 @@ Migration 1 (expand):
 
 Migration 2 (contract), after the app no longer uses them: drop those three columns.
 
-`prisma/seed.ts` seeds the "Cetak" product instead of `pricePerPrint`.
+`prisma/seed.ts` no longer touches `pricePerPrint`. It does not seed "Cetak": migration 1 already creates it on any fresh database, and a seed upsert by name would bring it back after a superadmin renames it.
 
 ## Services
 
