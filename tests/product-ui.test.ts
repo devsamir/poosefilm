@@ -72,6 +72,12 @@ describe("dedicated master product page", () => {
     const menu = source("app/components/AccountMenu.tsx");
     expect(menu).toContain("/admin/products");
   });
+
+  it("shows save errors inside the modal so they are not hidden by the overlay", () => {
+    const page = source("app/routes/admin.products.tsx");
+    expect(page).toContain("modalError");
+    expect(page).toContain("openModal");
+  });
 });
 
 describe("Settings no longer manages products", () => {

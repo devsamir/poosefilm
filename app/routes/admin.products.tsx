@@ -47,6 +47,7 @@ export default function ProductsPage() {
   const { products, filters } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [modal, setModal] = useState<{ id?: number } | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
   const error = actionData && "error" in actionData ? actionData.error : null;
   const success = actionData && "success" in actionData ? actionData.success : null;
   const hasFilters = Boolean(filters.q.trim()) || isProductKind(filters.kind) || filters.status === "ACTIVE" || filters.status === "INACTIVE";
@@ -54,14 +55,20 @@ export default function ProductsPage() {
 
   useEffect(() => {
     if (success) setModal(null);
+    setModalError(error);
   }, [actionData]);
+
+  function openModal(next: { id?: number }) {
+    setModalError(null);
+    setModal(next);
+  }
 
   return <div className="space-y-6">
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div><p className="eyebrow">SUPERADMIN AREA</p><h1 className="page-title">Produk</h1><p className="page-subtitle">Kelola product cetak dan merch yang dijual di kasir.</p></div>
-      <button className="button-primary" type="button" onClick={() => setModal({})}>+ Tambah product</button>
+      <button className="button-primary" type="button" onClick={() => openModal({})}>+ Tambah product</button>
     </div>
-    {error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">{error}</p> : null}
+    {error && !modal ? <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">{error}</p> : null}
     {success ? <p className="rounded-2xl border border-[#d8e0d5] bg-[#f1f6ef] p-4 text-sm text-[#4e684d]" role="status">{success}</p> : null}
 
     <Form method="get" key={`${filters.q}|${filters.kind}|${filters.status}`} className="flex flex-wrap items-end gap-3 rounded-2xl border border-[#e6ded2] bg-white p-4">
@@ -83,12 +90,12 @@ export default function ProductsPage() {
             <td className="px-5 py-4"><span className={`status-pill ${PRODUCT_KIND_PILL_CLASSES[product.kind]}`}>{PRODUCT_KIND_LABELS[product.kind]}</span></td>
             <td className="px-5 py-4 text-right">{currencyFormatter.format(product.price)}</td>
             <td className="px-5 py-4"><span className={`status-pill ${product.isActive ? "status-ready" : "status-waiting"}`}>{product.isActive ? "Aktif" : "Nonaktif"}</span></td>
-            <td className="px-5 py-4"><div className="flex items-center justify-end gap-4"><button className="settings-action" type="button" onClick={() => setModal({ id: product.id })}>Edit</button><Form method="post"><input type="hidden" name="intent" value="product-toggle" /><input type="hidden" name="id" value={product.id} /><input type="hidden" name="isActive" value={String(!product.isActive)} /><button className={`text-xs font-semibold ${product.isActive ? "text-[#a34e43]" : "text-[#4e684d]"}`} type="submit">{product.isActive ? "Nonaktifkan" : "Aktifkan"}</button></Form></div></td>
+            <td className="px-5 py-4"><div className="flex items-center justify-end gap-4"><button className="settings-action" type="button" onClick={() => openModal({ id: product.id })}>Edit</button><Form method="post"><input type="hidden" name="intent" value="product-toggle" /><input type="hidden" name="id" value={product.id} /><input type="hidden" name="isActive" value={String(!product.isActive)} /><button className={`text-xs font-semibold ${product.isActive ? "text-[#a34e43]" : "text-[#4e684d]"}`} type="submit">{product.isActive ? "Nonaktifkan" : "Aktifkan"}</button></Form></div></td>
           </tr>)}
         </tbody>
       </table>
-    </div> : <div className="empty-library"><p>{hasFilters ? "Tidak ada product yang cocok dengan filter." : "Belum ada product."}</p>{hasFilters ? null : <button className="settings-action mt-2" type="button" onClick={() => setModal({})}>Buat product pertama</button>}</div>}
+    </div> : <div className="empty-library"><p>{hasFilters ? "Tidak ada product yang cocok dengan filter." : "Belum ada product."}</p>{hasFilters ? null : <button className="settings-action mt-2" type="button" onClick={() => openModal({})}>Buat product pertama</button>}</div>}
 
-    {modal ? <SettingsModal open title={selectedProduct ? `Edit ${selectedProduct.name}` : "Tambah product"} description="Product nonaktif tidak muncul di kasir, tapi order lama tetap menyimpan nama, tipe, dan harganya." onClose={() => setModal(null)}><ProductEditor key={selectedProduct?.id || "new-product"} intent={selectedProduct ? "product-update" : "product-create"} product={selectedProduct} submitLabel={selectedProduct ? "Simpan perubahan" : "Simpan product"} /></SettingsModal> : null}
+    {modal ? <SettingsModal open title={selectedProduct ? `Edit ${selectedProduct.name}` : "Tambah product"} description="Product nonaktif tidak muncul di kasir, tapi order lama tetap menyimpan nama, tipe, dan harganya." onClose={() => setModal(null)}><>{modalError ? <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">{modalError}</p> : null}<ProductEditor key={selectedProduct?.id || "new-product"} intent={selectedProduct ? "product-update" : "product-create"} product={selectedProduct} submitLabel={selectedProduct ? "Simpan perubahan" : "Simpan product"} /></></SettingsModal> : null}
   </div>;
 }
