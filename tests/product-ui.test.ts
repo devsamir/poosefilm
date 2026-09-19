@@ -49,13 +49,21 @@ describe("cashier and receipt use product items", () => {
     expect(receipt).toContain("order.items.map");
     expect(receipt).not.toContain("Jumlah cetak");
   });
+
+  it("tags each product with its kind and counts only prints in the footer", () => {
+    const cashier = source("app/routes/admin.cashier.tsx");
+    expect(cashier).toContain("countPrintQuantity");
+    expect(cashier).toContain("PRODUCT_KIND_LABELS[product.kind]");
+    expect(cashier).toContain("halaman Produk");
+  });
 });
 
 describe("daily summary counts prints from order items", () => {
-  it("aggregates item quantities of real orders only", () => {
+  it("aggregates print item quantities of real orders only", () => {
     const reports = source("app/services/reports.server.ts");
     expect(reports).toContain("prisma.orderItem.aggregate");
     expect(reports).toContain("isRealTransaction: true");
+    expect(reports).toContain('productKind: "PRINT"');
     expect(reports).not.toContain("_sum: { quantity: true, totalAmount: true }");
   });
 });

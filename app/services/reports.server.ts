@@ -97,7 +97,7 @@ export async function getDailySummary(date: string) {
     prisma.order.count({ where: { ...where, status: "DELIVERED" } }),
     prisma.order.count({ where: { ...where, status: { in: ["WAITING_UPLOAD", "PROCESSING_FILTER", "READY"] } } }),
     prisma.order.aggregate({ where: realWhere, _sum: { totalAmount: true } }),
-    prisma.orderItem.aggregate({ where: { order: realWhere }, _sum: { quantity: true } }),
+    prisma.orderItem.aggregate({ where: { productKind: "PRINT", order: realWhere }, _sum: { quantity: true } }),
   ]);
   return { date, totalOrders: orders, realOrders, freeOrders, totalPrints: prints._sum.quantity || 0, revenue: Number(revenue._sum.totalAmount || 0), delivered, waiting };
 }

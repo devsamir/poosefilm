@@ -17,7 +17,8 @@ import { requireUser } from '~/services/auth.server';
 import { createOrder, parseOptionalFilterPackageId, serializeReceiptOrder } from '~/services/orders.server';
 import { getActiveFilterPackages } from '~/services/filter-packages.server';
 import { listActiveProducts } from '~/services/products.server';
-import { calculateOrderTotal, parseOrderItemFields } from '~/utils/order-items';
+import { calculateOrderTotal, countPrintQuantity, parseOrderItemFields } from '~/utils/order-items';
+import { PRODUCT_KIND_LABELS, PRODUCT_KIND_PILL_CLASSES } from '~/utils/product-kind';
 
 const rupiah = new Intl.NumberFormat('id-ID', {
   style: 'currency',
@@ -84,8 +85,10 @@ export default function CashierPage() {
   const items = products.map((product) => ({
     unitPrice: product.price,
     quantity: quantities[product.id] || 0,
+    productKind: product.kind,
   }));
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const printQuantity = countPrintQuantity(items);
   useEffect(() => {
     if (order?.code) {
       setQuantities({});
@@ -141,7 +144,12 @@ export default function CashierPage() {
                       className="flex items-center justify-between gap-4 p-4"
                     >
                       <div>
-                        <p className="text-sm font-semibold">{product.name}</p>
+                        <p className="flex items-center gap-2 text-sm font-semibold">
+                          {product.name}
+                          <span className={`status-pill ${PRODUCT_KIND_PILL_CLASSES[product.kind]}`}>
+                            {PRODUCT_KIND_LABELS[product.kind]}
+                          </span>
+                        </p>
                         <p className="text-xs text-[#968b7e]">
                           {rupiah.format(product.price)}
                         </p>
@@ -164,7 +172,7 @@ export default function CashierPage() {
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-[#968b7e]">
-                  Belum ada product aktif. Minta superadmin menambahkannya di Settings.
+                  Belum ada product aktif. Minta superadmin menambahkannya di halaman Produk.
                 </p>
               )}
             </fieldset>
@@ -196,7 +204,7 @@ export default function CashierPage() {
                 {rupiah.format(calculateOrderTotal(items, isRealTransaction))}
               </p>
               <p className="mt-1 text-xs text-[#968b7e]">
-                {totalQuantity} cetak
+                {printQuantity} cetak
               </p>
             </div>
             <button
