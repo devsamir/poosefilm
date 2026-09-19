@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { calculateOrderTotal, parseOrderItemFields, resolveOrderItems, validateOrderItems } from "~/utils/order-items";
+import { calculateOrderTotal, countPrintQuantity, parseOrderItemFields, resolveOrderItems, validateOrderItems } from "~/utils/order-items";
 
 describe("parseOrderItemFields", () => {
   it("reads qty_<productId> fields and skips blank, zero, and unrelated fields", () => {
@@ -36,18 +36,32 @@ describe("validateOrderItems", () => {
 
 describe("resolveOrderItems", () => {
   const products = [
-    { id: 1, name: "Strip 2 pose", price: 50000, isActive: true },
-    { id: 2, name: "Cabinet", price: 95000, isActive: true },
-    { id: 3, name: "Lama", price: 10000, isActive: false },
+    { id: 1, name: "Strip 2 pose", price: 50000, kind: "PRINT" as const, isActive: true },
+    { id: 2, name: "Cabinet", price: 95000, kind: "PRINT" as const, isActive: true },
+    { id: 3, name: "Lama", price: 10000, kind: "PRINT" as const, isActive: false },
+    { id: 4, name: "Kaos", price: 120000, kind: "MERCH" as const, isActive: true },
   ];
 
-  it("snapshots the current name and price of each product", () => {
-    expect(resolveOrderItems([{ productId: 2, quantity: 3 }], products)).toEqual([{ productId: 2, productName: "Cabinet", unitPrice: 95000, quantity: 3 }]);
+  it("snapshots the current name, kind, and price of each product", () => {
+    expect(resolveOrderItems([{ productId: 2, quantity: 3 }], products)).toEqual([{ productId: 2, productName: "Cabinet", productKind: "PRINT", unitPrice: 95000, quantity: 3 }]);
+    expect(resolveOrderItems([{ productId: 4, quantity: 1 }], products)).toEqual([{ productId: 4, productName: "Kaos", productKind: "MERCH", unitPrice: 120000, quantity: 1 }]);
   });
 
   it("rejects a missing or inactive product", () => {
     expect(() => resolveOrderItems([{ productId: 99, quantity: 1 }], products)).toThrow("Product tidak ditemukan atau sudah nonaktif.");
     expect(() => resolveOrderItems([{ productId: 3, quantity: 1 }], products)).toThrow("Product tidak ditemukan atau sudah nonaktif.");
+  });
+});
+
+describe("countPrintQuantity", () => {
+  it("counts only print items", () => {
+    const items = [{ productKind: "PRINT" as const, quantity: 3 }, { productKind: "MERCH" as const, quantity: 2 }, { productKind: "PRINT" as const, quantity: 1 }];
+    expect(countPrintQuantity(items)).toBe(4);
+  });
+
+  it("is zero when every item is merch or there are no items", () => {
+    expect(countPrintQuantity([{ productKind: "MERCH" as const, quantity: 5 }])).toBe(0);
+    expect(countPrintQuantity([])).toBe(0);
   });
 });
 

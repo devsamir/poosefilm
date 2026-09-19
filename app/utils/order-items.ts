@@ -1,5 +1,7 @@
+import type { ProductKind } from "~/utils/product-kind";
+
 export type OrderItemInput = { productId: number; quantity: number };
-export type ProductSnapshotSource = { id: number; name: string; price: number; isActive: boolean };
+export type ProductSnapshotSource = { id: number; name: string; price: number; kind: ProductKind; isActive: boolean };
 
 const QUANTITY_FIELD_PREFIX = "qty_";
 
@@ -28,17 +30,21 @@ export function validateOrderItems(items: OrderItemInput[]) {
   return items;
 }
 
-/** Copies the current name and price of each requested product so later edits never change the order. */
+/** Copies the current name, kind, and price of each requested product so later edits never change the order. */
 export function resolveOrderItems(items: OrderItemInput[], products: ProductSnapshotSource[]) {
   const productsById = new Map(products.map((product) => [product.id, product]));
   return items.map((item) => {
     const product = productsById.get(item.productId);
     if (!product || !product.isActive) throw new Error("Product tidak ditemukan atau sudah nonaktif.");
-    return { productId: product.id, productName: product.name, unitPrice: product.price, quantity: item.quantity };
+    return { productId: product.id, productName: product.name, productKind: product.kind, unitPrice: product.price, quantity: item.quantity };
   });
 }
 
 export function calculateOrderTotal(items: { unitPrice: number; quantity: number }[], isRealTransaction = true) {
   if (!isRealTransaction) return 0;
   return items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+}
+
+export function countPrintQuantity(items: { productKind: ProductKind; quantity: number }[]) {
+  return items.reduce((sum, item) => (item.productKind === "PRINT" ? sum + item.quantity : sum), 0);
 }

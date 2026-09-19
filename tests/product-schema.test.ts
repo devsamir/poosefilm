@@ -20,4 +20,13 @@ describe("multi-product schema", () => {
     expect(orderModel).not.toMatch(/\n\s+quantity\s/);
     expect(settingModel).not.toContain("pricePerPrint");
   });
+
+  it("flags products as print or merch and snapshots the kind on order items", () => {
+    const productModel = schema.match(/model Product \{[\s\S]*?\n\}/)?.[0] ?? "";
+    const itemModel = schema.match(/model OrderItem \{[\s\S]*?\n\}/)?.[0] ?? "";
+    expect(schema).toContain("enum ProductKind");
+    expect(productModel).toContain("kind");
+    expect(productModel).toContain("description");
+    expect(itemModel).toMatch(/productKind\s+ProductKind\s+@map\("product_kind"\)\s*\n/);
+  });
 });

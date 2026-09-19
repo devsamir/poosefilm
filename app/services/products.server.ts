@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "~/services/prisma.server";
+import type { ProductKind } from "~/utils/product-kind";
 
 export type ProductInput = { name: string; price: string; isActive?: boolean };
 
@@ -17,8 +18,8 @@ export function normalizeProductInput(input: ProductInput) {
   return { name, price: validateProductPrice(input.price), isActive: input.isActive ?? true };
 }
 
-function serializeProduct(product: { id: number; name: string; price: Prisma.Decimal; isActive: boolean }) {
-  return { id: product.id, name: product.name, price: Number(product.price), isActive: product.isActive };
+function serializeProduct(product: { id: number; name: string; price: Prisma.Decimal; kind: ProductKind; description: string | null; isActive: boolean }) {
+  return { id: product.id, name: product.name, price: Number(product.price), kind: product.kind, description: product.description, isActive: product.isActive };
 }
 
 function rethrowDuplicateName(error: unknown): never {
