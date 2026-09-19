@@ -23,12 +23,16 @@ Replace the single global "price per print" with a master list of products. At t
 
 ## Migration
 
-One SQL migration, in order:
+Two SQL migrations (expand, then contract) so that typecheck and tests stay green after every implementation step. The end state is the same as a single migration.
+
+Migration 1 (expand):
 
 1. Create `products` and `order_items`.
 2. Insert product "Cetak" with `price` from `app_settings.price_per_print` (95000 if no settings row).
 3. Insert one `order_items` row per existing order: `product_name = 'Cetak'`, `unit_price = orders.unit_price`, `quantity = orders.quantity`.
-4. Drop `orders.quantity`, `orders.unit_price`, `app_settings.price_per_print`.
+4. Make `orders.quantity`, `orders.unit_price`, `app_settings.price_per_print` nullable.
+
+Migration 2 (contract), after the app no longer uses them: drop those three columns.
 
 `prisma/seed.ts` seeds the "Cetak" product instead of `pricePerPrint`.
 
