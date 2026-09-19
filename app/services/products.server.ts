@@ -1,9 +1,11 @@
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "~/services/prisma.server";
-import type { ProductKind } from "~/utils/product-kind";
+import { isProductKind, type ProductKind } from "~/utils/product-kind";
 
-export type ProductInput = { name: string; price: string; isActive?: boolean };
+export const PRODUCT_DESCRIPTION_MAX_LENGTH = 255;
+
+export type ProductInput = { name: string; price: string; kind: string; description?: string; isActive?: boolean };
 
 export function validateProductPrice(value: string) {
   if (!/^\d+$/.test(value.trim()) || Number(value) <= 0) {
@@ -15,7 +17,10 @@ export function validateProductPrice(value: string) {
 export function normalizeProductInput(input: ProductInput) {
   const name = input.name.trim();
   if (!name) throw new Error("Nama wajib diisi.");
-  return { name, price: validateProductPrice(input.price), isActive: input.isActive ?? true };
+  if (!isProductKind(input.kind)) throw new Error("Tipe product tidak valid.");
+  const description = (input.description ?? "").trim();
+  if (description.length > PRODUCT_DESCRIPTION_MAX_LENGTH) throw new Error(`Keterangan maksimal ${PRODUCT_DESCRIPTION_MAX_LENGTH} karakter.`);
+  return { name, price: validateProductPrice(input.price), kind: input.kind, description: description || null, isActive: input.isActive ?? true };
 }
 
 function serializeProduct(product: { id: number; name: string; price: Prisma.Decimal; kind: ProductKind; description: string | null; isActive: boolean }) {

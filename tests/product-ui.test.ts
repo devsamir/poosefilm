@@ -30,6 +30,8 @@ describe("product administration UI", () => {
     const editor = source("app/components/ProductEditor.tsx");
     expect(editor).toContain('name="isActive"');
     expect(editor).toContain('name="price"');
+    expect(editor).toContain('name="kind"');
+    expect(editor).toContain('name="description"');
   });
 });
 

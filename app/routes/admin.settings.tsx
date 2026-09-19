@@ -51,7 +51,7 @@ export async function action({ request }: ActionFunctionArgs) {
       return json({ success: "Paket berhasil dihapus." });
     }
     if (intent === "product-create" || intent === "product-update") {
-      const input = { name: String(formData.get("name") || ""), price: String(formData.get("price") || ""), isActive: formData.get("isActive") === "on" };
+      const input = { name: String(formData.get("name") || ""), price: String(formData.get("price") || ""), kind: String(formData.get("kind") || ""), description: String(formData.get("description") || ""), isActive: formData.get("isActive") === "on" };
       if (intent === "product-create") await createProduct(input);
       else await updateProduct(Number(formData.get("id")), input);
       return json({ success: "Product berhasil disimpan." });
