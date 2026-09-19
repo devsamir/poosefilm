@@ -6,7 +6,7 @@ Replace the single global "price per print" with a master list of products. At t
 
 ## Decisions
 
-- All products are prints. No "is print" flag. Total prints in the daily report is the sum of all item quantities.
+- All products are prints. No "is print" flag. Total prints in the daily report is the sum of all item quantities. (Superseded by `2026-09-19-master-product-page-design.md`: products now have a Print/Merch kind and only print items count as prints.)
 - The global `pricePerPrint` setting goes away. It becomes the first product ("Cetak") via migration; existing orders are backfilled with one item each. Every order then has the same data shape.
 - `Order.quantity` and `Order.unitPrice` are dropped. Prints come from `OrderItem`; money stays as one `Order.totalAmount` snapshot.
 - Products are never hard-deleted, only deactivated, because order items reference them.
