@@ -42,6 +42,23 @@ export async function listActiveProducts() {
   return products.map(serializeProduct);
 }
 
+export type ProductFilters = { q: string; kind: string; status: string };
+
+/** Builds the Prisma where for the master list; an unknown kind or status means no filter. */
+export function buildProductsWhere({ q, kind, status }: ProductFilters) {
+  const search = q.trim();
+  return {
+    ...(search ? { OR: [{ name: { contains: search, mode: "insensitive" as const } }, { description: { contains: search, mode: "insensitive" as const } }] } : {}),
+    ...(isProductKind(kind) ? { kind } : {}),
+    ...(status === "ACTIVE" ? { isActive: true } : status === "INACTIVE" ? { isActive: false } : {}),
+  };
+}
+
+export async function searchProducts(filters: ProductFilters) {
+  const products = await prisma.product.findMany({ where: buildProductsWhere(filters), orderBy: { name: "asc" } });
+  return products.map(serializeProduct);
+}
+
 export async function createProduct(input: ProductInput) {
   const data = normalizeProductInput(input);
   try {
