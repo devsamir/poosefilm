@@ -40,7 +40,7 @@ One migration:
   - `normalizeProductInput` also takes `kind` (must be `PRINT` or `MERCH`, error otherwise) and `description` (trimmed, empty becomes null, max 255 characters).
   - Serialized products include `kind` and `description`.
   - New pure `buildProductsWhere({ q, kind, status })`: `q` matches name or description case-insensitively; `kind` is `PRINT` or `MERCH`; `status` is `ACTIVE` or `INACTIVE`. Any other value, or absent, means no filter. The URL params are `q`, `type` (for `kind`), and `status`, for example `/admin/products?q=polaroid&type=PRINT&status=ACTIVE`.
-  - New `searchProducts(filters)` returns the filtered list ordered by name ascending, with the total count.
+  - New `searchProducts(filters)` returns the filtered list ordered by name ascending. There is no pagination, so the page shows the length of that list as the result count.
   - `listProducts()` stays unfiltered because `createOrder` needs every product to resolve items.
 - `order-items.ts`: `ProductSnapshotSource` gains `kind`; `resolveOrderItems` returns `productKind`; new pure `countPrintQuantity(items)` sums quantities where `productKind` is `PRINT`.
 - `orders.server.ts`: `createOrder` passes `productKind` through `items: { create: items }`. `serializeReceiptOrder` is unchanged.
