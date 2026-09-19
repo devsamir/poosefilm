@@ -53,3 +53,7 @@ export async function updateProduct(id: number, input: ProductInput) {
     return rethrowDuplicateName(error);
   }
 }
+
+export async function setProductActive(id: number, isActive: boolean) {
+  return serializeProduct(await prisma.product.update({ where: { id }, data: { isActive } }));
+}

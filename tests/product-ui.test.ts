@@ -18,6 +18,14 @@ describe("product administration UI", () => {
     expect(settings).toContain("ProductEditor");
   });
 
+  it("toggles a product active or inactive straight from its card", () => {
+    const settings = source("app/routes/admin.settings.tsx");
+    expect(settings).toContain('"product-toggle"');
+    expect(settings).toContain("setProductActive");
+    expect(settings).toContain("Nonaktifkan");
+    expect(settings).toContain("Aktifkan");
+  });
+
   it("submits the product fields from the editor form", () => {
     const editor = source("app/components/ProductEditor.tsx");
     expect(editor).toContain('name="isActive"');

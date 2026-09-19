@@ -8,7 +8,7 @@ import { ProductEditor } from "~/components/ProductEditor";
 import { SettingsModal } from "~/components/SettingsModal";
 import { requireSuperadmin } from "~/services/auth.server";
 import { createFilterPackage, createFilterTemplate, deleteFilterPackage, deleteFilterTemplate, listFilterPackages, listFilterTemplates, updateFilterPackage, updateFilterTemplate } from "~/services/filter-packages.server";
-import { createProduct, listProducts, updateProduct } from "~/services/products.server";
+import { createProduct, listProducts, setProductActive, updateProduct } from "~/services/products.server";
 import { getWhatsappTemplate, updateWhatsappTemplate, validateWhatsappTemplate } from "~/services/settings.server";
 
 function parseJson<T>(value: FormDataEntryValue | null, fallback: T) {
@@ -56,6 +56,11 @@ export async function action({ request }: ActionFunctionArgs) {
       else await updateProduct(Number(formData.get("id")), input);
       return json({ success: "Product berhasil disimpan." });
     }
+    if (intent === "product-toggle") {
+      const isActive = formData.get("isActive") === "true";
+      await setProductActive(Number(formData.get("id")), isActive);
+      return json({ success: isActive ? "Product diaktifkan." : "Product dinonaktifkan." });
+    }
     return json({ error: "Aksi tidak dikenal." }, { status: 400 });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Gagal menyimpan settings." }, { status: 400 });
@@ -100,7 +105,7 @@ export default function SettingsPage() {
 
     <section className="settings-section" data-testid="product-library">
       <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="settings-label">Katalog</p><h2 className="mt-2 font-display text-3xl text-[#1f2528]">Master product</h2><p className="mt-2 text-sm text-[#667177]">Product dan harga yang tersedia untuk dipilih kasir.</p></div><button className="button-primary" type="button" onClick={() => setModal({ type: "product" })}>+ Product baru</button></div>
-      {products.length ? <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="library-card"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-semibold text-[#1f2528]">{product.name}</h3><span className={`status-pill ${product.isActive ? "status-ready" : "status-waiting"}`}>{product.isActive ? "Aktif" : "Nonaktif"}</span></div><p className="mt-2 text-sm text-[#667177]">{currencyFormatter.format(product.price)}</p><div className="mt-4"><button className="settings-action" type="button" onClick={() => setModal({ type: "product", id: product.id })}>Edit</button></div></article>)}</div> : <div className="empty-library mt-6"><p>Belum ada product.</p><button className="settings-action mt-2" type="button" onClick={() => setModal({ type: "product" })}>Buat product pertama</button></div>}
+      {products.length ? <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="library-card"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-semibold text-[#1f2528]">{product.name}</h3><span className={`status-pill ${product.isActive ? "status-ready" : "status-waiting"}`}>{product.isActive ? "Aktif" : "Nonaktif"}</span></div><p className="mt-2 text-sm text-[#667177]">{currencyFormatter.format(product.price)}</p><div className="mt-4 flex items-center justify-between gap-3"><button className="settings-action" type="button" onClick={() => setModal({ type: "product", id: product.id })}>Edit</button><Form method="post"><input type="hidden" name="intent" value="product-toggle" /><input type="hidden" name="id" value={product.id} /><input type="hidden" name="isActive" value={String(!product.isActive)} /><button className={`text-xs font-semibold ${product.isActive ? "text-[#a34e43]" : "text-[#4e684d]"}`} type="submit">{product.isActive ? "Nonaktifkan" : "Aktifkan"}</button></Form></div></article>)}</div> : <div className="empty-library mt-6"><p>Belum ada product.</p><button className="settings-action mt-2" type="button" onClick={() => setModal({ type: "product" })}>Buat product pertama</button></div>}
     </section>
 
     <section className="settings-section" data-testid="filter-library">
