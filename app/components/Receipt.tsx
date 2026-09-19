@@ -1,7 +1,7 @@
 import { Link } from "@remix-run/react";
 import { FaInstagram } from "react-icons/fa";
 
-type ReceiptOrder = { code: string; createdAt: string; customerName: string; whatsapp: string; quantity: number; totalAmount: number };
+type ReceiptOrder = { code: string; createdAt: string; customerName: string; whatsapp: string; quantity: number | null; totalAmount: number };
 
 export function Receipt({ order, qrDataUrl }: { order: ReceiptOrder; qrDataUrl: string }) {
   return (
