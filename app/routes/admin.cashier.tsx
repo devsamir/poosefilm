@@ -152,7 +152,8 @@ export default function CashierPage() {
                         type="number"
                         min="0"
                         step="1"
-                        value={quantities[product.id] ?? 0}
+                        value={quantities[product.id] || ''}
+                        placeholder="0"
                         onChange={(event) =>
                           changeQuantity(product.id, event.target.value)
                         }

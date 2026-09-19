@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { describe, expect, it } from 'vitest';
 
 import { generatePublicOrderCode } from '~/utils/public-code';
@@ -64,6 +65,20 @@ describe('order creation', () => {
         { id: 2, productName: 'Strip 2 pose', quantity: 2, unitPrice: 50000 },
       ],
     });
+  });
+
+  it('converts Decimal amounts to plain numbers for the receipt', () => {
+    const serialized = serializeReceiptOrder({
+      code: 'PB260919-BBBB2222',
+      createdAt: new Date('2026-09-19T03:00:00Z'),
+      customerName: 'Husein',
+      whatsapp: '081234',
+      isRealTransaction: true,
+      totalAmount: new Prisma.Decimal('95000.00'),
+      items: [{ id: 1, productName: 'Cabinet', quantity: 1, unitPrice: new Prisma.Decimal('95000.00') }],
+    });
+    expect(serialized.totalAmount).toBe(95000);
+    expect(serialized.items[0].unitPrice).toBe(95000);
   });
 
   it('normalizes an optional filter package selection from form data', () => {

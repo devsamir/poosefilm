@@ -60,7 +60,7 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
           items: { create: items },
           ...(selectedPackage ? { filterSnapshots: { create: selectedPackage.snapshots.map((filter) => ({ filterTemplateId: filter.filterId, filterName: filter.filterName, filterCss: filter.css, sortOrder: filter.sortOrder })) } } : {}),
         },
-        include: { files: true, filterSnapshots: true, items: true },
+        include: { files: true, filterSnapshots: true, items: { orderBy: { id: "asc" } } },
       }));
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002" || attempt === 4) throw error;
