@@ -87,7 +87,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (success) setModal(null);
-  }, [success]);
+  }, [actionData]);
 
   return <div className="space-y-8">
     <header className="flex flex-wrap items-end justify-between gap-5">
