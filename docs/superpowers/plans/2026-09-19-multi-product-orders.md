@@ -216,20 +216,20 @@ Expected: `The schema at prisma\schema.prisma is valid`, client generated, test 
 This never touches the dev database `poosefilm`; it creates `poosefilm_migtest` and `poosefilm_shadow`.
 
 ```bash
-DB_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-)
+DB_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2- | tr -d '')
 SCRATCH_URL=$(echo "$DB_URL" | sed -E 's#/poosefilm(\?.*)?$#/poosefilm_migtest\1#')
 SHADOW_URL=$(echo "$DB_URL" | sed -E 's#/poosefilm(\?.*)?$#/poosefilm_shadow\1#')
-psql "$DB_URL" -c 'DROP DATABASE IF EXISTS poosefilm_migtest' -c 'CREATE DATABASE poosefilm_migtest' -c 'DROP DATABASE IF EXISTS poosefilm_shadow' -c 'CREATE DATABASE poosefilm_shadow'
-for d in $(ls -d prisma/migrations/*/ | grep -v -e add_products_and_order_items -e drop_legacy_price_columns); do psql "$SCRATCH_URL" -v ON_ERROR_STOP=1 -q -f "${d}migration.sql"; done
-psql "$SCRATCH_URL" -v ON_ERROR_STOP=1 -q <<'SQL'
+psql -c 'DROP DATABASE IF EXISTS poosefilm_migtest' -c 'CREATE DATABASE poosefilm_migtest' -c 'DROP DATABASE IF EXISTS poosefilm_shadow' -c 'CREATE DATABASE poosefilm_shadow' "$DB_URL"
+for d in $(ls -d prisma/migrations/*/ | grep -v -e add_products_and_order_items -e drop_legacy_price_columns); do psql -v ON_ERROR_STOP=1 -q -f "${d}migration.sql" "$SCRATCH_URL"; done
+psql -v ON_ERROR_STOP=1 -q "$SCRATCH_URL" <<'SQL'
 INSERT INTO app_settings (price_per_print, updated_at) VALUES (120000, now());
 INSERT INTO users (name, email, password_hash, updated_at) VALUES ('T', 't@t.id', 'x', now());
 INSERT INTO orders (code, customer_name, whatsapp, quantity, unit_price, total_amount, is_real_transaction, payment_method, payment_status, created_by_id, updated_at)
 VALUES ('T1', 'A', '08111', 3, 120000, 360000, true, 'CASH', 'PAID', 1, now()),
        ('T2', 'B', '08222', 2, 120000, 0, false, 'CASH', 'PAID', 1, now());
 SQL
-psql "$SCRATCH_URL" -v ON_ERROR_STOP=1 -q -f prisma/migrations/20260919090000_add_products_and_order_items/migration.sql
-psql "$SCRATCH_URL" -c "SELECT name, price, is_active FROM products" -c "SELECT o.code, o.total_amount, i.product_name, i.unit_price, i.quantity FROM orders o JOIN order_items i ON i.order_id = o.id ORDER BY o.code"
+psql -v ON_ERROR_STOP=1 -q -f prisma/migrations/20260919090000_add_products_and_order_items/migration.sql "$SCRATCH_URL"
+psql -c "SELECT name, price, is_active FROM products" -c "SELECT o.code, o.total_amount, i.product_name, i.unit_price, i.quantity FROM orders o JOIN order_items i ON i.order_id = o.id ORDER BY o.code" "$SCRATCH_URL"
 ```
 
 Expected: `products` has one row `Cetak | 120000.00 | t`; the join shows two rows: `T1 | 360000.00 | Cetak | 120000.00 | 3` and `T2 | 0.00 | Cetak | 120000.00 | 2`. Order count equals item count and `total_amount` is unchanged.
@@ -954,7 +954,7 @@ export function serializeReceiptOrder(order: { code: string; createdAt: Date; cu
 Replace the `ReceiptOrder` type line
 
 ```tsx
-type ReceiptOrder = { code: string; createdAt: string; customerName: string; whatsapp: string; quantity: number; totalAmount: number };
+type ReceiptOrder = { code: string; createdAt: string; customerName: string; whatsapp: string; quantity: number | null; totalAmount: number };
 ```
 
 with
@@ -1462,8 +1462,8 @@ Expected: all pass, typecheck clean. Also run `npx eslint app tests` and expect 
 Re-run the scratch flow from Task 1 Step 6 (variables `DB_URL`, `SCRATCH_URL`, `SHADOW_URL` set the same way; drop and recreate both databases first), then apply the second migration on top of the legacy-data state:
 
 ```bash
-psql "$SCRATCH_URL" -v ON_ERROR_STOP=1 -q -f prisma/migrations/20260919100000_drop_legacy_price_columns/migration.sql
-psql "$SCRATCH_URL" -c "SELECT o.code, o.total_amount, i.product_name, i.unit_price, i.quantity FROM orders o JOIN order_items i ON i.order_id = o.id ORDER BY o.code" -c "\d orders"
+psql -v ON_ERROR_STOP=1 -q -f prisma/migrations/20260919100000_drop_legacy_price_columns/migration.sql "$SCRATCH_URL"
+psql -c "SELECT o.code, o.total_amount, i.product_name, i.unit_price, i.quantity FROM orders o JOIN order_items i ON i.order_id = o.id ORDER BY o.code" -c "\d orders" "$SCRATCH_URL"
 npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url "$SHADOW_URL" --exit-code
 ```
 
@@ -1492,8 +1492,8 @@ npx prisma db seed
 Expected: both new migrations applied; existing dev orders now have one `Cetak` item each. Quick check (orders and items should be equal):
 
 ```bash
-DB_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2-)
-psql "$DB_URL" -c "SELECT (SELECT count(*) FROM orders) AS orders, (SELECT count(*) FROM order_items) AS items"
+DB_URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2- | tr -d '')
+psql -c "SELECT (SELECT count(*) FROM orders) AS orders, (SELECT count(*) FROM order_items) AS items" "$DB_URL"
 ```
 
 - [ ] **Step 2: Start the app**
@@ -1518,7 +1518,7 @@ Expected: typecheck clean, all tests pass, build succeeds. Report any failure ve
 - [ ] **Step 5: Clean up the scratch databases**
 
 ```bash
-psql "$DB_URL" -c 'DROP DATABASE IF EXISTS poosefilm_migtest' -c 'DROP DATABASE IF EXISTS poosefilm_shadow'
+psql -c 'DROP DATABASE IF EXISTS poosefilm_migtest' -c 'DROP DATABASE IF EXISTS poosefilm_shadow' "$DB_URL"
 ```
 
 ---
