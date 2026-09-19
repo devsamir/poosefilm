@@ -9,8 +9,7 @@ import { SettingsModal } from "~/components/SettingsModal";
 import { requireSuperadmin } from "~/services/auth.server";
 import { createFilterPackage, createFilterTemplate, deleteFilterPackage, deleteFilterTemplate, listFilterPackages, listFilterTemplates, updateFilterPackage, updateFilterTemplate } from "~/services/filter-packages.server";
 import { createProduct, listProducts, updateProduct } from "~/services/products.server";
-import { getPricePerPrint, getWhatsappTemplate, updatePricePerPrint, updateWhatsappTemplate, validateWhatsappTemplate } from "~/services/settings.server";
-import { validatePricePerPrint } from "~/services/users.server";
+import { getWhatsappTemplate, updateWhatsappTemplate, validateWhatsappTemplate } from "~/services/settings.server";
 
 function parseJson<T>(value: FormDataEntryValue | null, fallback: T) {
   try { return JSON.parse(String(value || "")) as T; } catch { return fallback; }
@@ -18,14 +17,14 @@ function parseJson<T>(value: FormDataEntryValue | null, fallback: T) {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireSuperadmin(request);
-  const [price, whatsappTemplate, filters, packages, products] = await Promise.all([getPricePerPrint(), getWhatsappTemplate(), listFilterTemplates(), listFilterPackages(), listProducts()]);
-  return json({ price: Number(price), whatsappTemplate, filters, packages, products });
+  const [whatsappTemplate, filters, packages, products] = await Promise.all([getWhatsappTemplate(), listFilterTemplates(), listFilterPackages(), listProducts()]);
+  return json({ whatsappTemplate, filters, packages, products });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   await requireSuperadmin(request);
   const formData = await request.formData();
-  const intent = String(formData.get("intent") || "price");
+  const intent = String(formData.get("intent") || "");
   try {
     if (intent === "whatsapp-template") {
       await updateWhatsappTemplate(validateWhatsappTemplate(String(formData.get("whatsappTemplate") || "")));
@@ -57,15 +56,13 @@ export async function action({ request }: ActionFunctionArgs) {
       else await updateProduct(Number(formData.get("id")), input);
       return json({ success: "Product berhasil disimpan." });
     }
-    await updatePricePerPrint(validatePricePerPrint(String(formData.get("price") || "")));
-    return json({ success: "Harga berhasil disimpan." });
+    return json({ error: "Aksi tidak dikenal." }, { status: 400 });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Gagal menyimpan settings." }, { status: 400 });
   }
 }
 
 type SettingsModalState =
-  | { type: "price" }
   | { type: "whatsapp" }
   | { type: "filter"; id?: number }
   | { type: "package"; id?: number }
@@ -74,7 +71,7 @@ type SettingsModalState =
 const currencyFormatter = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 
 export default function SettingsPage() {
-  const { price, whatsappTemplate, filters, packages, products } = useLoaderData<typeof loader>();
+  const { whatsappTemplate, filters, packages, products } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [modal, setModal] = useState<SettingsModalState | null>(null);
   const [sampleImage, setSampleImage] = useState<File | null>(null);
@@ -91,15 +88,14 @@ export default function SettingsPage() {
 
   return <div className="space-y-8">
     <header className="flex flex-wrap items-end justify-between gap-5">
-      <div><p className="eyebrow">SUPERADMIN AREA</p><h1 className="page-title">Settings</h1><p className="page-subtitle max-w-xl">Atur harga, pesan customer, dan resep visual untuk hasil foto Poosefilm.</p></div>
+      <div><p className="eyebrow">SUPERADMIN AREA</p><h1 className="page-title">Settings</h1><p className="page-subtitle max-w-xl">Atur product, pesan customer, dan resep visual untuk hasil foto Poosefilm.</p></div>
       <div className="rounded-full border border-[#d8e0d5] bg-[#f1f6ef] px-3 py-2 text-xs font-semibold text-[#4e684d]">Perubahan tersimpan ke database</div>
     </header>
     {error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">{error}</p> : null}
     {success ? <p className="rounded-2xl border border-[#d8e0d5] bg-[#f1f6ef] p-4 text-sm text-[#4e684d]" role="status">{success}</p> : null}
 
-    <section className="grid gap-4 lg:grid-cols-3" aria-label="Pengaturan cepat">
-      <article className="settings-card settings-card-accent"><div className="flex items-start justify-between gap-3"><div><p className="settings-label">Harga per cetak</p><p className="mt-3 font-display text-3xl text-[#1f2528]">{currencyFormatter.format(price)}</p></div><span className="settings-icon">Rp</span></div><button className="settings-action mt-6" type="button" onClick={() => setModal({ type: "price" })}>Edit harga <span aria-hidden="true">↗</span></button></article>
-      <article className="settings-card lg:col-span-2"><div className="flex items-start justify-between gap-4"><div><p className="settings-label">Template WhatsApp</p><p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-[#667177]">{whatsappTemplate}</p></div><span className="settings-icon settings-icon-green">WA</span></div><button className="settings-action mt-6" type="button" onClick={() => setModal({ type: "whatsapp" })}>Edit template <span aria-hidden="true">↗</span></button></article>
+    <section className="grid gap-4" aria-label="Pengaturan cepat">
+      <article className="settings-card"><div className="flex items-start justify-between gap-4"><div><p className="settings-label">Template WhatsApp</p><p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-[#667177]">{whatsappTemplate}</p></div><span className="settings-icon settings-icon-green">WA</span></div><button className="settings-action mt-6" type="button" onClick={() => setModal({ type: "whatsapp" })}>Edit template <span aria-hidden="true">↗</span></button></article>
     </section>
 
     <section className="settings-section" data-testid="product-library">
@@ -117,7 +113,6 @@ export default function SettingsPage() {
       {packages.length ? <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{packages.map((packageData) => <article key={packageData.id} className="library-card"><div className="flex items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-[#1f2528]">{packageData.name}</h3><p className="mt-2 text-xs text-[#879197]">{packageData.filters.length} filter independen</p></div><span className="package-mark" aria-hidden="true">✦</span></div><div className="mt-5 flex min-h-12 flex-wrap content-start gap-2">{packageData.filters.map((filter) => <span key={filter.id} className="filter-chip">{filter.name}</span>)}</div><div className="mt-5 flex items-center justify-between gap-3"><button className="settings-action" type="button" onClick={() => setModal({ type: "package", id: packageData.id })}>Edit</button><Form method="post" onSubmit={(event) => { if (!window.confirm(`Hapus paket ${packageData.name}?`)) event.preventDefault(); }}><input type="hidden" name="intent" value="package-delete" /><input type="hidden" name="id" value={packageData.id} /><button className="text-xs font-semibold text-[#a34e43]" type="submit">Hapus</button></Form></div></article>)}</div> : <div className="empty-library mt-6"><p>Belum ada paket filter.</p><button className="settings-action mt-2" type="button" onClick={() => setModal({ type: "package" })}>Buat paket pertama</button></div>}
     </section>
 
-    {modal?.type === "price" ? <SettingsModal open title="Harga per cetak" description="Harga ini dipakai saat kasir menghitung total transaksi baru." onClose={() => setModal(null)}><Form method="post" className="max-w-md space-y-5"><label className="field-label">Harga dalam Rupiah<input className="field-input text-lg" type="number" name="price" min="1" step="1" defaultValue={price} required autoFocus /></label><div className="flex justify-end"><button className="button-primary" type="submit">Simpan harga</button></div></Form></SettingsModal> : null}
     {modal?.type === "whatsapp" ? <SettingsModal open title="Template WhatsApp" description="Gunakan placeholder {customerName}, {orderCode}, dan {link}. Link wajib disertakan agar customer bisa membuka hasilnya." onClose={() => setModal(null)}><Form method="post" className="space-y-5"><input type="hidden" name="intent" value="whatsapp-template" /><textarea className="field-input min-h-52 resize-y" name="whatsappTemplate" defaultValue={whatsappTemplate} rows={8} required autoFocus /><div className="flex justify-end"><button className="button-primary" type="submit">Simpan template</button></div></Form></SettingsModal> : null}
     {modal?.type === "product" ? <SettingsModal open title={selectedProduct ? `Edit ${selectedProduct.name}` : "Buat product baru"} description="Product yang nonaktif tidak muncul di kasir, tapi order lama tetap menyimpan nama dan harganya." onClose={() => setModal(null)}><ProductEditor key={selectedProduct?.id || "new-product"} intent={selectedProduct ? "product-update" : "product-create"} product={selectedProduct} submitLabel={selectedProduct ? "Simpan perubahan" : "Simpan product"} /></SettingsModal> : null}
     {modal?.type === "filter" ? <SettingsModal open title={selectedFilter ? `Edit ${selectedFilter.name}` : "Buat filter baru"} description="Atur karakter warna foto. Nilai filter disimpan sebagai resep, lalu diproses server saat dipakai order." onClose={() => setModal(null)}><FilterEditor key={selectedFilter?.id || "new-filter"} intent={selectedFilter ? "filter-update" : "filter-create"} filter={selectedFilter} submitLabel={selectedFilter ? "Simpan perubahan" : "Simpan filter"} sampleImage={sampleImage} onSampleImageChange={setSampleImage} /></SettingsModal> : null}

@@ -11,4 +11,13 @@ describe("multi-product schema", () => {
     expect(schema).toContain("productName");
     expect(schema).toContain("@@unique([orderId, productId])");
   });
+
+  it("no longer stores a single price or quantity on the order or settings", () => {
+    const orderModel = schema.match(/model Order \{[\s\S]*?\n\}/)?.[0] ?? "";
+    const settingModel = schema.match(/model AppSetting \{[\s\S]*?\n\}/)?.[0] ?? "";
+    expect(orderModel).toContain("model Order");
+    expect(orderModel).not.toContain("unitPrice");
+    expect(orderModel).not.toMatch(/\n\s+quantity\s/);
+    expect(settingModel).not.toContain("pricePerPrint");
+  });
 });

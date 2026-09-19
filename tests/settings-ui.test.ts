@@ -9,5 +9,7 @@ describe("settings UI", () => {
     expect(source).toContain('data-testid="filter-library"');
     expect(source).toContain('data-testid="package-library"');
     expect(source).not.toContain("<details");
+    expect(source).not.toContain("Harga per cetak");
+    expect(source).not.toContain("updatePricePerPrint");
   });
 });
