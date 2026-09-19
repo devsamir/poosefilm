@@ -67,3 +67,28 @@ describe("daily summary counts prints from order items", () => {
     expect(reports).not.toContain("_sum: { quantity: true, totalAmount: true }");
   });
 });
+
+describe("dedicated master product page", () => {
+  it("is superadmin-only and offers search, type, and status filters", () => {
+    const page = source("app/routes/admin.products.tsx");
+    expect(page).toContain("requireSuperadmin");
+    expect(page).toContain("searchProducts");
+    expect(page).toContain('name="q"');
+    expect(page).toContain('name="type"');
+    expect(page).toContain('name="status"');
+  });
+
+  it("creates, updates, and toggles products from the table", () => {
+    const page = source("app/routes/admin.products.tsx");
+    expect(page).toContain('"product-create"');
+    expect(page).toContain('"product-update"');
+    expect(page).toContain('"product-toggle"');
+    expect(page).toContain("ProductEditor");
+    expect(page).toContain("+ Tambah product");
+  });
+
+  it("is reachable from the superadmin account menu", () => {
+    const menu = source("app/components/AccountMenu.tsx");
+    expect(menu).toContain("/admin/products");
+  });
+});
