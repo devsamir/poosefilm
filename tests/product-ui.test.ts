@@ -39,3 +39,12 @@ describe("cashier and receipt use product items", () => {
     expect(receipt).not.toContain("Jumlah cetak");
   });
 });
+
+describe("daily summary counts prints from order items", () => {
+  it("aggregates item quantities of real orders only", () => {
+    const reports = source("app/services/reports.server.ts");
+    expect(reports).toContain("prisma.orderItem.aggregate");
+    expect(reports).toContain("isRealTransaction: true");
+    expect(reports).not.toContain("_sum: { quantity: true, totalAmount: true }");
+  });
+});
