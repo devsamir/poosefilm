@@ -4,11 +4,9 @@ import { useEffect, useState } from "react";
 
 import { FilterEditor } from "~/components/FilterEditor";
 import { FilterPackageEditor } from "~/components/FilterPackageEditor";
-import { ProductEditor } from "~/components/ProductEditor";
 import { SettingsModal } from "~/components/SettingsModal";
 import { requireSuperadmin } from "~/services/auth.server";
 import { createFilterPackage, createFilterTemplate, deleteFilterPackage, deleteFilterTemplate, listFilterPackages, listFilterTemplates, updateFilterPackage, updateFilterTemplate } from "~/services/filter-packages.server";
-import { createProduct, listProducts, setProductActive, updateProduct } from "~/services/products.server";
 import { getWhatsappTemplate, updateWhatsappTemplate, validateWhatsappTemplate } from "~/services/settings.server";
 
 function parseJson<T>(value: FormDataEntryValue | null, fallback: T) {
@@ -17,8 +15,8 @@ function parseJson<T>(value: FormDataEntryValue | null, fallback: T) {
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireSuperadmin(request);
-  const [whatsappTemplate, filters, packages, products] = await Promise.all([getWhatsappTemplate(), listFilterTemplates(), listFilterPackages(), listProducts()]);
-  return json({ whatsappTemplate, filters, packages, products });
+  const [whatsappTemplate, filters, packages] = await Promise.all([getWhatsappTemplate(), listFilterTemplates(), listFilterPackages()]);
+  return json({ whatsappTemplate, filters, packages });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -50,17 +48,6 @@ export async function action({ request }: ActionFunctionArgs) {
       await deleteFilterPackage(Number(formData.get("id")));
       return json({ success: "Paket berhasil dihapus." });
     }
-    if (intent === "product-create" || intent === "product-update") {
-      const input = { name: String(formData.get("name") || ""), price: String(formData.get("price") || ""), kind: String(formData.get("kind") || ""), description: String(formData.get("description") || ""), isActive: formData.get("isActive") === "on" };
-      if (intent === "product-create") await createProduct(input);
-      else await updateProduct(Number(formData.get("id")), input);
-      return json({ success: "Product berhasil disimpan." });
-    }
-    if (intent === "product-toggle") {
-      const isActive = formData.get("isActive") === "true";
-      await setProductActive(Number(formData.get("id")), isActive);
-      return json({ success: isActive ? "Product diaktifkan." : "Product dinonaktifkan." });
-    }
     return json({ error: "Aksi tidak dikenal." }, { status: 400 });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Gagal menyimpan settings." }, { status: 400 });
@@ -70,13 +57,10 @@ export async function action({ request }: ActionFunctionArgs) {
 type SettingsModalState =
   | { type: "whatsapp" }
   | { type: "filter"; id?: number }
-  | { type: "package"; id?: number }
-  | { type: "product"; id?: number };
-
-const currencyFormatter = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
+  | { type: "package"; id?: number };
 
 export default function SettingsPage() {
-  const { whatsappTemplate, filters, packages, products } = useLoaderData<typeof loader>();
+  const { whatsappTemplate, filters, packages } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [modal, setModal] = useState<SettingsModalState | null>(null);
   const [sampleImage, setSampleImage] = useState<File | null>(null);
@@ -85,7 +69,6 @@ export default function SettingsPage() {
   const filterOptions = filters.map((filter) => ({ id: filter.id, name: filter.name }));
   const selectedFilter = modal?.type === "filter" && modal.id ? filters.find((filter) => filter.id === modal.id) : undefined;
   const selectedPackage = modal?.type === "package" && modal.id ? packages.find((packageData) => packageData.id === modal.id) : undefined;
-  const selectedProduct = modal?.type === "product" && modal.id ? products.find((product) => product.id === modal.id) : undefined;
 
   useEffect(() => {
     if (success) setModal(null);
@@ -93,7 +76,7 @@ export default function SettingsPage() {
 
   return <div className="space-y-8">
     <header className="flex flex-wrap items-end justify-between gap-5">
-      <div><p className="eyebrow">SUPERADMIN AREA</p><h1 className="page-title">Settings</h1><p className="page-subtitle max-w-xl">Atur product, pesan customer, dan resep visual untuk hasil foto Poosefilm.</p></div>
+      <div><p className="eyebrow">SUPERADMIN AREA</p><h1 className="page-title">Settings</h1><p className="page-subtitle max-w-xl">Atur pesan customer dan resep visual untuk hasil foto Poosefilm.</p></div>
       <div className="rounded-full border border-[#d8e0d5] bg-[#f1f6ef] px-3 py-2 text-xs font-semibold text-[#4e684d]">Perubahan tersimpan ke database</div>
     </header>
     {error ? <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">{error}</p> : null}
@@ -101,11 +84,6 @@ export default function SettingsPage() {
 
     <section className="grid gap-4" aria-label="Pengaturan cepat">
       <article className="settings-card"><div className="flex items-start justify-between gap-4"><div><p className="settings-label">Template WhatsApp</p><p className="mt-3 line-clamp-2 max-w-2xl text-sm leading-6 text-[#667177]">{whatsappTemplate}</p></div><span className="settings-icon settings-icon-green">WA</span></div><button className="settings-action mt-6" type="button" onClick={() => setModal({ type: "whatsapp" })}>Edit template <span aria-hidden="true">↗</span></button></article>
-    </section>
-
-    <section className="settings-section" data-testid="product-library">
-      <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="settings-label">Katalog</p><h2 className="mt-2 font-display text-3xl text-[#1f2528]">Master product</h2><p className="mt-2 text-sm text-[#667177]">Product dan harga yang tersedia untuk dipilih kasir.</p></div><button className="button-primary" type="button" onClick={() => setModal({ type: "product" })}>+ Product baru</button></div>
-      {products.length ? <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{products.map((product) => <article key={product.id} className="library-card"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-semibold text-[#1f2528]">{product.name}</h3><span className={`status-pill ${product.isActive ? "status-ready" : "status-waiting"}`}>{product.isActive ? "Aktif" : "Nonaktif"}</span></div><p className="mt-2 text-sm text-[#667177]">{currencyFormatter.format(product.price)}</p><div className="mt-4 flex items-center justify-between gap-3"><button className="settings-action" type="button" onClick={() => setModal({ type: "product", id: product.id })}>Edit</button><Form method="post"><input type="hidden" name="intent" value="product-toggle" /><input type="hidden" name="id" value={product.id} /><input type="hidden" name="isActive" value={String(!product.isActive)} /><button className={`text-xs font-semibold ${product.isActive ? "text-[#a34e43]" : "text-[#4e684d]"}`} type="submit">{product.isActive ? "Nonaktifkan" : "Aktifkan"}</button></Form></div></article>)}</div> : <div className="empty-library mt-6"><p>Belum ada product.</p><button className="settings-action mt-2" type="button" onClick={() => setModal({ type: "product" })}>Buat product pertama</button></div>}
     </section>
 
     <section className="settings-section" data-testid="filter-library">
@@ -119,7 +97,6 @@ export default function SettingsPage() {
     </section>
 
     {modal?.type === "whatsapp" ? <SettingsModal open title="Template WhatsApp" description="Gunakan placeholder {customerName}, {orderCode}, dan {link}. Link wajib disertakan agar customer bisa membuka hasilnya." onClose={() => setModal(null)}><Form method="post" className="space-y-5"><input type="hidden" name="intent" value="whatsapp-template" /><textarea className="field-input min-h-52 resize-y" name="whatsappTemplate" defaultValue={whatsappTemplate} rows={8} required autoFocus /><div className="flex justify-end"><button className="button-primary" type="submit">Simpan template</button></div></Form></SettingsModal> : null}
-    {modal?.type === "product" ? <SettingsModal open title={selectedProduct ? `Edit ${selectedProduct.name}` : "Buat product baru"} description="Product yang nonaktif tidak muncul di kasir, tapi order lama tetap menyimpan nama dan harganya." onClose={() => setModal(null)}><ProductEditor key={selectedProduct?.id || "new-product"} intent={selectedProduct ? "product-update" : "product-create"} product={selectedProduct} submitLabel={selectedProduct ? "Simpan perubahan" : "Simpan product"} /></SettingsModal> : null}
     {modal?.type === "filter" ? <SettingsModal open title={selectedFilter ? `Edit ${selectedFilter.name}` : "Buat filter baru"} description="Atur karakter warna foto. Nilai filter disimpan sebagai resep, lalu diproses server saat dipakai order." onClose={() => setModal(null)}><FilterEditor key={selectedFilter?.id || "new-filter"} intent={selectedFilter ? "filter-update" : "filter-create"} filter={selectedFilter} submitLabel={selectedFilter ? "Simpan perubahan" : "Simpan filter"} sampleImage={sampleImage} onSampleImageChange={setSampleImage} /></SettingsModal> : null}
     {modal?.type === "package" ? <SettingsModal open title={selectedPackage ? `Edit ${selectedPackage.name}` : "Buat paket filter"} description="Pilih filter yang akan dibuat dari original image. Setiap filter menghasilkan file terpisah." onClose={() => setModal(null)}><FilterPackageEditor key={selectedPackage?.id || "new-package"} filters={filterOptions} intent={selectedPackage ? "package-update" : "package-create"} packageData={selectedPackage} submitLabel={selectedPackage ? "Simpan perubahan" : "Simpan paket"} /></SettingsModal> : null}
   </div>;

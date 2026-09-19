@@ -24,7 +24,8 @@ the seed preserves the existing password.
 ## MVP workflow
 
 - `Kasir`: pick products and quantities, create a paid cash order, and print its QR receipt.
-- `Settings` (SUPERADMIN only): manage products (name, price), WhatsApp template, filter masters, and filter packages.
+- `Produk` (SUPERADMIN only, account menu): manage the product master (print or merch, price, active) with search and filters.
+- `Settings` (SUPERADMIN only): manage the WhatsApp template, filter masters, and filter packages.
 - `Antrian`: upload image/video files directly to Cloudflare R2, open a prefilled WhatsApp message, and mark an order complete.
 - `Riwayat`: search delivered orders, open a prefilled WhatsApp message, and print individual receipts.
 - `Rekap`: review daily order, revenue, delivered, and waiting totals.

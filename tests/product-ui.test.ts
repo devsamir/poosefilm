@@ -7,25 +7,6 @@ function source(path: string) {
 }
 
 describe("product administration UI", () => {
-  it("lets superadmin manage the product master from Settings", () => {
-    const settings = source("app/routes/admin.settings.tsx");
-    expect(settings).toContain("requireSuperadmin");
-    expect(settings).toContain('data-testid="product-library"');
-    expect(settings).toContain("createProduct");
-    expect(settings).toContain("updateProduct");
-    expect(settings).toContain('"product-create"');
-    expect(settings).toContain('"product-update"');
-    expect(settings).toContain("ProductEditor");
-  });
-
-  it("toggles a product active or inactive straight from its card", () => {
-    const settings = source("app/routes/admin.settings.tsx");
-    expect(settings).toContain('"product-toggle"');
-    expect(settings).toContain("setProductActive");
-    expect(settings).toContain("Nonaktifkan");
-    expect(settings).toContain("Aktifkan");
-  });
-
   it("submits the product fields from the editor form", () => {
     const editor = source("app/components/ProductEditor.tsx");
     expect(editor).toContain('name="isActive"');
@@ -90,5 +71,16 @@ describe("dedicated master product page", () => {
   it("is reachable from the superadmin account menu", () => {
     const menu = source("app/components/AccountMenu.tsx");
     expect(menu).toContain("/admin/products");
+  });
+});
+
+describe("Settings no longer manages products", () => {
+  it("keeps the product master on its own page", () => {
+    const settings = source("app/routes/admin.settings.tsx");
+    expect(settings).toContain("requireSuperadmin");
+    expect(settings).not.toContain('data-testid="product-library"');
+    expect(settings).not.toContain("ProductEditor");
+    expect(settings).not.toContain("products.server");
+    expect(settings).not.toContain('"product-toggle"');
   });
 });
