@@ -23,3 +23,19 @@ describe("product administration UI", () => {
     expect(editor).toContain('name="price"');
   });
 });
+
+describe("cashier and receipt use product items", () => {
+  it("renders one quantity input per active product", () => {
+    const cashier = source("app/routes/admin.cashier.tsx");
+    expect(cashier).toContain("listActiveProducts");
+    expect(cashier).toContain("name={`qty_${product.id}`}");
+    expect(cashier).toContain("parseOrderItemFields");
+    expect(cashier).not.toContain('name="quantity"');
+  });
+
+  it("lists item lines on the receipt instead of a single print count", () => {
+    const receipt = source("app/components/Receipt.tsx");
+    expect(receipt).toContain("order.items.map");
+    expect(receipt).not.toContain("Jumlah cetak");
+  });
+});

@@ -5,9 +5,10 @@ import { canAccessSuperadmin } from "~/services/auth.server";
 import { getActiveFilterPackages } from "~/services/filter-packages.server";
 import { canDeliverOrder } from "~/services/filter-render-jobs.server";
 import { prisma } from "~/services/prisma.server";
+import { listProducts } from "~/services/products.server";
 import { deleteObjectIfPresent } from "~/services/r2.server";
-import { getPricePerPrint } from "~/services/settings.server";
 import { buildOrderSnapshot } from "~/utils/order-invariants";
+import { resolveOrderItems, validateOrderItems, type OrderItemInput } from "~/utils/order-items";
 import { generatePublicOrderCode } from "~/utils/public-code";
 import { normalizeWhatsappNumber } from "~/utils/whatsapp";
 
@@ -19,13 +20,9 @@ function validateContactInput(input: { customerName: string; whatsapp: string })
   return { customerName, whatsapp };
 }
 
-export function validateOrderInput(input: { customerName: string; whatsapp: string; quantity: string }) {
+export function validateOrderInput(input: { customerName: string; whatsapp: string; items: OrderItemInput[] }) {
   const { customerName, whatsapp } = validateContactInput(input);
-  const quantity = Number(input.quantity);
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    throw new Error("Jumlah cetak wajib valid.");
-  }
-  return { customerName, whatsapp, quantity };
+  return { customerName, whatsapp, items: validateOrderItems(input.items) };
 }
 
 export function parseOptionalFilterPackageId(value: string | null | undefined) {
@@ -36,10 +33,10 @@ export function parseOptionalFilterPackageId(value: string | null | undefined) {
   return id;
 }
 
-export async function createOrder(input: { customerName: string; whatsapp: string; quantity: string; isRealTransaction?: boolean; marketingConsent?: boolean; filterPackageId?: number }, createdById: number) {
+export async function createOrder(input: { customerName: string; whatsapp: string; items: OrderItemInput[]; isRealTransaction?: boolean; marketingConsent?: boolean; filterPackageId?: number }, createdById: number) {
   const details = validateOrderInput(input);
-  const price = Number(await getPricePerPrint());
-  const snapshot = buildOrderSnapshot({ quantity: details.quantity, unitPrice: price, isRealTransaction: input.isRealTransaction !== false });
+  const items = resolveOrderItems(details.items, await listProducts());
+  const snapshot = buildOrderSnapshot({ items, isRealTransaction: input.isRealTransaction !== false });
   const selectedPackage = input.filterPackageId
     ? (await getActiveFilterPackages()).find((filterPackage) => filterPackage.id === input.filterPackageId)
     : undefined;
@@ -52,8 +49,6 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
           code: generatePublicOrderCode(),
           customerName: details.customerName,
           whatsapp: details.whatsapp,
-          quantity: details.quantity,
-          unitPrice: snapshot.unitPrice,
           totalAmount: snapshot.totalAmount,
           isRealTransaction: snapshot.isRealTransaction,
           marketingConsent: input.marketingConsent === true,
@@ -62,9 +57,10 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
           paymentStatus: snapshot.paymentStatus,
           status: snapshot.status,
           createdById,
+          items: { create: items },
           ...(selectedPackage ? { filterSnapshots: { create: selectedPackage.snapshots.map((filter) => ({ filterTemplateId: filter.filterId, filterName: filter.filterName, filterCss: filter.css, sortOrder: filter.sortOrder })) } } : {}),
         },
-        include: { files: true, filterSnapshots: true },
+        include: { files: true, filterSnapshots: true, items: true },
       }));
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002" || attempt === 4) throw error;
@@ -76,8 +72,20 @@ export async function createOrder(input: { customerName: string; whatsapp: strin
 export async function getOrderByCode(code: string) {
   return prisma.order.findUnique({
     where: { code },
-    include: { files: { include: { filterSnapshot: true, renderJob: { select: { status: true, lastError: true } } }, orderBy: { sortOrder: "asc" } }, filterSnapshots: { orderBy: { sortOrder: "asc" } }, filterPackage: true },
+    include: { files: { include: { filterSnapshot: true, renderJob: { select: { status: true, lastError: true } } }, orderBy: { sortOrder: "asc" } }, filterSnapshots: { orderBy: { sortOrder: "asc" } }, filterPackage: true, items: { orderBy: { id: "asc" } } },
   });
+}
+
+export function serializeReceiptOrder(order: { code: string; createdAt: Date; customerName: string; whatsapp: string; isRealTransaction: boolean; totalAmount: Prisma.Decimal | number; items: Array<{ id: number; productName: string; quantity: number; unitPrice: Prisma.Decimal | number }> }) {
+  return {
+    code: order.code,
+    createdAt: order.createdAt.toISOString(),
+    customerName: order.customerName,
+    whatsapp: order.whatsapp,
+    isRealTransaction: order.isRealTransaction,
+    totalAmount: Number(order.totalAmount),
+    items: order.items.map((item) => ({ id: item.id, productName: item.productName, quantity: item.quantity, unitPrice: Number(item.unitPrice) })),
+  };
 }
 
 export async function markOrderDelivered(id: number) {

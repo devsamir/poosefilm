@@ -3,10 +3,9 @@ import { describe, expect, it } from "vitest";
 import { buildOrderSnapshot } from "~/utils/order-invariants";
 
 describe("order model invariants", () => {
-  it("snapshots the unit price and total at creation time", () => {
-    expect(buildOrderSnapshot({ quantity: 3, unitPrice: 95000 })).toEqual({
-      unitPrice: 95000,
-      totalAmount: 285000,
+  it("totals every item at its snapshotted price", () => {
+    expect(buildOrderSnapshot({ items: [{ unitPrice: 95000, quantity: 3 }, { unitPrice: 50000, quantity: 2 }] })).toEqual({
+      totalAmount: 385000,
       isRealTransaction: true,
       paymentMethod: "CASH",
       paymentStatus: "PAID",
@@ -15,7 +14,7 @@ describe("order model invariants", () => {
   });
 
   it("sets non-real transactions to zero value", () => {
-    expect(buildOrderSnapshot({ quantity: 3, unitPrice: 95000, isRealTransaction: false })).toMatchObject({
+    expect(buildOrderSnapshot({ items: [{ unitPrice: 95000, quantity: 3 }], isRealTransaction: false })).toMatchObject({
       totalAmount: 0,
       isRealTransaction: false,
     });

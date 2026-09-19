@@ -1,7 +1,10 @@
 import { Link } from "@remix-run/react";
 import { FaInstagram } from "react-icons/fa";
 
-type ReceiptOrder = { code: string; createdAt: string; customerName: string; whatsapp: string; quantity: number | null; totalAmount: number };
+type ReceiptItem = { id: number; productName: string; quantity: number; unitPrice: number };
+type ReceiptOrder = { code: string; createdAt: string; customerName: string; whatsapp: string; isRealTransaction: boolean; totalAmount: number; items: ReceiptItem[] };
+
+const rupiah = new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 });
 
 export function Receipt({ order, qrDataUrl }: { order: ReceiptOrder; qrDataUrl: string }) {
   return (
@@ -19,8 +22,8 @@ export function Receipt({ order, qrDataUrl }: { order: ReceiptOrder; qrDataUrl: 
         <div className="flex justify-between gap-4"><dt className="text-[#84796c]">Kode order</dt><dd className="font-semibold">{order.code}</dd></div>
         <div className="flex justify-between gap-4"><dt className="text-[#84796c]">Customer</dt><dd className="font-semibold">{order.customerName}</dd></div>
         <div className="flex justify-between gap-4"><dt className="text-[#84796c]">WhatsApp</dt><dd>{order.whatsapp}</dd></div>
-        <div className="flex justify-between gap-4"><dt className="text-[#84796c]">Jumlah cetak</dt><dd>{order.quantity}</dd></div>
-        <div className="flex justify-between gap-4 border-t border-[#eee7df] pt-3 text-base"><dt className="font-semibold">Total dibayar</dt><dd className="font-bold">{new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(order.totalAmount)}</dd></div>
+        {order.items.map((item) => <div key={item.id} className="flex justify-between gap-4"><dt className="text-[#84796c]">{item.productName} x {item.quantity}</dt><dd>{order.isRealTransaction ? rupiah.format(item.unitPrice * item.quantity) : null}</dd></div>)}
+        <div className="flex justify-between gap-4 border-t border-[#eee7df] pt-3 text-base"><dt className="font-semibold">Total dibayar</dt><dd className="font-bold">{rupiah.format(order.totalAmount)}</dd></div>
       </dl>
       <p className="mt-6 text-center text-xs leading-5 text-[#968b7e]">Scan QR ini setelah file foto/video selesai diunggah untuk membuka halaman download.</p>
       <div className="mt-4 flex justify-center gap-4 text-xs text-[#84796c]">

@@ -14,15 +14,22 @@ import {
 
 import { Receipt } from '~/components/Receipt';
 import { requireUser } from '~/services/auth.server';
-import { createOrder, parseOptionalFilterPackageId } from '~/services/orders.server';
+import { createOrder, parseOptionalFilterPackageId, serializeReceiptOrder } from '~/services/orders.server';
 import { getActiveFilterPackages } from '~/services/filter-packages.server';
-import { getPricePerPrint } from '~/services/settings.server';
+import { listActiveProducts } from '~/services/products.server';
+import { calculateOrderTotal, parseOrderItemFields } from '~/utils/order-items';
+
+const rupiah = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  maximumFractionDigits: 0,
+});
 
 export async function loader({ request }: LoaderFunctionArgs) {
   await requireUser(request);
-  const [price, filterPackages] = await Promise.all([getPricePerPrint(), getActiveFilterPackages()]);
+  const [products, filterPackages] = await Promise.all([listActiveProducts(), getActiveFilterPackages()]);
   return json({
-    price: Number(price),
+    products,
     filterPackages,
     publicBaseUrl: process.env.PUBLIC_ORDER_BASE_URL || 'http://localhost:3000',
   });
@@ -36,7 +43,7 @@ export async function action({ request }: ActionFunctionArgs) {
       {
         customerName: String(formData.get('customerName') || ''),
         whatsapp: String(formData.get('whatsapp') || ''),
-        quantity: String(formData.get('quantity') || ''),
+        items: parseOrderItemFields(formData.entries()),
         isRealTransaction: formData.get('isRealTransaction') === 'on',
         marketingConsent: formData.get('marketingConsent') === 'on',
         filterPackageId: parseOptionalFilterPackageId(String(formData.get('filterPackageId') || '')),
@@ -50,14 +57,7 @@ export async function action({ request }: ActionFunctionArgs) {
       { margin: 1, width: 220 }
     );
     return json({
-      order: {
-        code: order.code,
-        createdAt: order.createdAt.toISOString(),
-        customerName: order.customerName,
-        whatsapp: order.whatsapp,
-        quantity: order.quantity,
-        totalAmount: Number(order.totalAmount),
-      },
+      order: serializeReceiptOrder(order),
       qrDataUrl,
     });
   } catch (error) {
@@ -71,22 +71,34 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function CashierPage() {
-  const { price, filterPackages } = useLoaderData<typeof loader>();
+  const { products, filterPackages } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-  const [quantity, setQuantity] = useState(1);
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [isRealTransaction, setIsRealTransaction] = useState(true);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const order = actionData && 'order' in actionData ? actionData.order : null;
   const qrDataUrl =
     actionData && 'qrDataUrl' in actionData ? actionData.qrDataUrl : null;
   const error = actionData && 'error' in actionData ? actionData.error : null;
+  const items = products.map((product) => ({
+    unitPrice: product.price,
+    quantity: quantities[product.id] || 0,
+  }));
+  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   useEffect(() => {
     if (order?.code) {
+      setQuantities({});
       setIsRealTransaction(true);
       setMarketingConsent(false);
     }
   }, [order?.code]);
+  function changeQuantity(productId: number, value: string) {
+    setQuantities((current) => ({
+      ...current,
+      [productId]: Math.max(0, Math.floor(Number(value)) || 0),
+    }));
+  }
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div>
@@ -110,7 +122,7 @@ export default function CashierPage() {
                 required
               />
             </label>
-            <label className="field-label">
+            <label className="field-label sm:col-span-2">
               Nomor WhatsApp
               <input
                 className="field-input"
@@ -119,21 +131,42 @@ export default function CashierPage() {
                 required
               />
             </label>
-            <label className="field-label">
-              Jumlah cetak
-              <input
-                className="field-input"
-                name="quantity"
-                type="number"
-                min="1"
-                step="1"
-                value={quantity}
-                onChange={(event) =>
-                  setQuantity(Math.max(1, Number(event.target.value) || 1))
-                }
-                required
-              />
-            </label>
+            <fieldset className="sm:col-span-2">
+              <legend className="field-label">Product</legend>
+              {products.length ? (
+                <div className="mt-2 divide-y divide-[#eee7df] rounded-xl border border-[#e6ded2]">
+                  {products.map((product) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between gap-4 p-4"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold">{product.name}</p>
+                        <p className="text-xs text-[#968b7e]">
+                          {rupiah.format(product.price)}
+                        </p>
+                      </div>
+                      <input
+                        className="field-input !mt-0 w-24"
+                        name={`qty_${product.id}`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={quantities[product.id] ?? 0}
+                        onChange={(event) =>
+                          changeQuantity(product.id, event.target.value)
+                        }
+                        aria-label={`Jumlah ${product.name}`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-[#968b7e]">
+                  Belum ada product aktif. Minta superadmin menambahkannya di Settings.
+                </p>
+              )}
+            </fieldset>
             <label className="field-label sm:col-span-2">
               Paket filter
               <select className="field-input" name="filterPackageId" defaultValue="">
@@ -159,31 +192,27 @@ export default function CashierPage() {
             <div>
               <p className="text-xs text-[#968b7e]">Total bayar</p>
               <p className="text-lg font-semibold">
-                {new Intl.NumberFormat('id-ID', {
-                  style: 'currency',
-                  currency: 'IDR',
-                  maximumFractionDigits: 0,
-                }).format(isRealTransaction ? price * quantity : 0)}
+                {rupiah.format(calculateOrderTotal(items, isRealTransaction))}
               </p>
               <p className="mt-1 text-xs text-[#968b7e]">
-                {new Intl.NumberFormat('id-ID', {
-                  style: 'currency',
-                  currency: 'IDR',
-                  maximumFractionDigits: 0,
-                }).format(price)}{' '}
-                / cetak
+                {totalQuantity} cetak
               </p>
             </div>
             <button
               className="button-primary"
               type="submit"
-              disabled={navigation.state === 'submitting'}
+              disabled={navigation.state === 'submitting' || totalQuantity === 0}
             >
               {navigation.state === 'submitting'
                 ? 'Memproses...'
                 : 'Proses pembayaran'}
             </button>
           </div>
+          {totalQuantity === 0 ? (
+            <p className="mt-4 text-sm text-[#968b7e]">
+              Isi jumlah minimal satu product.
+            </p>
+          ) : null}
           {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
         </Form>
       </div>
