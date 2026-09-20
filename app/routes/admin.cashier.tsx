@@ -137,7 +137,7 @@ export default function CashierPage() {
                 required
               />
             </label>
-            <fieldset className="sm:col-span-2">
+            <fieldset className="min-w-0 sm:col-span-2">
               <div className="flex items-center justify-between gap-3">
                 <legend className="field-label">Product</legend>
                 <button
@@ -171,7 +171,7 @@ export default function CashierPage() {
                           {rupiah.format(product.price)}
                         </p>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <div className="flex items-center gap-1">
                           <button
                             className="button-secondary !px-3 !py-2"

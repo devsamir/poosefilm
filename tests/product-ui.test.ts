@@ -35,6 +35,12 @@ describe("cashier and receipt use product items", () => {
     expect(cashier.indexOf("<ProductPickerModal")).toBeGreaterThan(cashier.indexOf("</Form>"));
   });
 
+  it("lets the order lines wrap inside the card on narrow screens", () => {
+    const cashier = source("app/routes/admin.cashier.tsx");
+    expect(cashier).toContain('<fieldset className="min-w-0 sm:col-span-2">');
+    expect(cashier).toContain('<div className="flex flex-wrap items-center gap-3">');
+  });
+
   it("lists item lines on the receipt instead of a single print count", () => {
     const receipt = source("app/components/Receipt.tsx");
     expect(receipt).toContain("order.items.map");
