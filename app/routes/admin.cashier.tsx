@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   json,
   type ActionFunctionArgs,
@@ -12,12 +12,14 @@ import {
   useNavigation,
 } from '@remix-run/react';
 
+import { ProductPickerModal } from '~/components/ProductPickerModal';
 import { Receipt } from '~/components/Receipt';
 import { requireUser } from '~/services/auth.server';
 import { createOrder, parseOptionalFilterPackageId, serializeReceiptOrder } from '~/services/orders.server';
 import { getActiveFilterPackages } from '~/services/filter-packages.server';
 import { listActiveProducts } from '~/services/products.server';
 import { calculateOrderTotal, countPrintQuantity, parseOrderItemFields } from '~/utils/order-items';
+import { addOrderLine, removeOrderLine, setOrderLineQuantity, type OrderLine } from '~/utils/order-lines';
 import { PRODUCT_KIND_LABELS, PRODUCT_KIND_PILL_CLASSES } from '~/utils/product-kind';
 
 const rupiah = new Intl.NumberFormat('id-ID', {
@@ -75,33 +77,34 @@ export default function CashierPage() {
   const { products, filterPackages } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
-  const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [lines, setLines] = useState<OrderLine[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [isRealTransaction, setIsRealTransaction] = useState(true);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const order = actionData && 'order' in actionData ? actionData.order : null;
   const qrDataUrl =
     actionData && 'qrDataUrl' in actionData ? actionData.qrDataUrl : null;
   const error = actionData && 'error' in actionData ? actionData.error : null;
-  const items = products.map((product) => ({
+  const productsById = new Map(products.map((product) => [product.id, product]));
+  const orderLines = lines.flatMap((line) => {
+    const product = productsById.get(line.productId);
+    return product ? [{ product, quantity: line.quantity }] : [];
+  });
+  const items = orderLines.map(({ product, quantity }) => ({
     unitPrice: product.price,
-    quantity: quantities[product.id] || 0,
+    quantity,
     productKind: product.kind,
   }));
-  const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
   const printQuantity = countPrintQuantity(items);
+  const closePicker = useCallback(() => setPickerOpen(false), []);
   useEffect(() => {
     if (order?.code) {
-      setQuantities({});
+      setLines([]);
+      setPickerOpen(false);
       setIsRealTransaction(true);
       setMarketingConsent(false);
     }
   }, [order?.code]);
-  function changeQuantity(productId: number, value: string) {
-    setQuantities((current) => ({
-      ...current,
-      [productId]: Math.max(0, Math.floor(Number(value)) || 0),
-    }));
-  }
   return (
     <div className="grid gap-8 xl:grid-cols-[minmax(0,1fr)_390px]">
       <div>
@@ -135,15 +138,29 @@ export default function CashierPage() {
               />
             </label>
             <fieldset className="sm:col-span-2">
-              <legend className="field-label">Product</legend>
-              {products.length ? (
+              <div className="flex items-center justify-between gap-3">
+                <legend className="field-label">Product</legend>
+                <button
+                  className="button-secondary text-xs"
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                >
+                  + Tambah product
+                </button>
+              </div>
+              {orderLines.length ? (
                 <div className="mt-2 divide-y divide-[#eee7df] rounded-xl border border-[#e6ded2]">
-                  {products.map((product) => (
+                  {orderLines.map(({ product, quantity }) => (
                     <div
                       key={product.id}
-                      className="flex items-center justify-between gap-4 p-4"
+                      className="flex flex-wrap items-center justify-between gap-4 p-4"
                     >
-                      <div>
+                      <input
+                        type="hidden"
+                        name={`qty_${product.id}`}
+                        value={quantity}
+                      />
+                      <div className="min-w-0">
                         <p className="flex items-center gap-2 text-sm font-semibold">
                           {product.name}
                           <span className={`status-pill ${PRODUCT_KIND_PILL_CLASSES[product.kind]}`}>
@@ -154,25 +171,70 @@ export default function CashierPage() {
                           {rupiah.format(product.price)}
                         </p>
                       </div>
-                      <input
-                        className="field-input !mt-0 w-24"
-                        name={`qty_${product.id}`}
-                        type="number"
-                        min="0"
-                        step="1"
-                        value={quantities[product.id] || ''}
-                        placeholder="0"
-                        onChange={(event) =>
-                          changeQuantity(product.id, event.target.value)
-                        }
-                        aria-label={`Jumlah ${product.name}`}
-                      />
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="button-secondary !px-3 !py-2"
+                            type="button"
+                            aria-label={`Kurangi ${product.name}`}
+                            disabled={quantity <= 1}
+                            onClick={() =>
+                              setLines((current) =>
+                                setOrderLineQuantity(current, product.id, quantity - 1)
+                              )
+                            }
+                          >
+                            -
+                          </button>
+                          <input
+                            className="field-input !mt-0 w-16 text-center"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={quantity}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onChange={(event) =>
+                              setLines((current) =>
+                                setOrderLineQuantity(current, product.id, Number(event.target.value))
+                              )
+                            }
+                            aria-label={`Jumlah ${product.name}`}
+                          />
+                          <button
+                            className="button-secondary !px-3 !py-2"
+                            type="button"
+                            aria-label={`Tambah jumlah ${product.name}`}
+                            onClick={() =>
+                              setLines((current) =>
+                                setOrderLineQuantity(current, product.id, quantity + 1)
+                              )
+                            }
+                          >
+                            +
+                          </button>
+                        </div>
+                        <p className="w-28 text-right text-sm font-semibold">
+                          {rupiah.format(product.price * quantity)}
+                        </p>
+                        <button
+                          className="text-xs font-semibold text-[#a34e43]"
+                          type="button"
+                          aria-label={`Hapus ${product.name}`}
+                          onClick={() =>
+                            setLines((current) => removeOrderLine(current, product.id))
+                          }
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-sm text-[#968b7e]">
-                  Belum ada product aktif. Minta superadmin menambahkannya di halaman Produk.
+                <p className="mt-2 rounded-xl border border-dashed border-[#d9d0c4] p-4 text-sm text-[#968b7e]">
+                  {products.length
+                    ? 'Belum ada product. Klik + Tambah product.'
+                    : 'Belum ada product aktif. Minta superadmin menambahkannya di halaman Produk.'}
                 </p>
               )}
             </fieldset>
@@ -210,20 +272,30 @@ export default function CashierPage() {
             <button
               className="button-primary"
               type="submit"
-              disabled={navigation.state === 'submitting' || totalQuantity === 0}
+              disabled={navigation.state === 'submitting' || orderLines.length === 0}
             >
               {navigation.state === 'submitting'
                 ? 'Memproses...'
                 : 'Proses pembayaran'}
             </button>
           </div>
-          {totalQuantity === 0 ? (
+          {orderLines.length === 0 ? (
             <p className="mt-4 text-sm text-[#968b7e]">
-              Isi jumlah minimal satu product.
+              Tambah minimal satu product.
             </p>
           ) : null}
           {error ? <p className="mt-4 text-sm text-red-700">{error}</p> : null}
         </Form>
+        {pickerOpen ? (
+          <ProductPickerModal
+            products={products}
+            lines={lines}
+            onAdd={(productId) =>
+              setLines((current) => addOrderLine(current, productId))
+            }
+            onClose={closePicker}
+          />
+        ) : null}
       </div>
       {order && qrDataUrl ? (
         <Receipt order={order} qrDataUrl={qrDataUrl} />

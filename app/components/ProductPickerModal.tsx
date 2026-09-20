@@ -21,7 +21,7 @@ export function ProductPickerModal({ products, lines, onAdd, onClose }: { produc
   return (
     <SettingsModal open eyebrow="KASIR" title="Tambah product" description="Klik product untuk menambahkannya ke order. Klik lagi untuk menambah jumlahnya." onClose={onClose}>
       <div className="space-y-4">
-        <input className="field-input" data-autofocus value={q} onChange={(event) => setQ(event.target.value)} placeholder="Cari nama atau keterangan..." aria-label="Cari product" />
+        <input className="field-input !mt-0" data-autofocus value={q} onChange={(event) => setQ(event.target.value)} placeholder="Cari nama atau keterangan..." aria-label="Cari product" />
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filter tipe">
           {KIND_CHIPS.map((chip) => (
             <button key={chip.value || "all"} type="button" aria-pressed={kind === chip.value} className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${kind === chip.value ? "border-[#25231f] bg-[#25231f] text-white" : "border-[#ded5ca] bg-white text-[#62594f] hover:border-[#25231f]"}`} onClick={() => setKind(chip.value)}>{chip.label}</button>

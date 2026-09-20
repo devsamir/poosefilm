@@ -17,12 +17,22 @@ describe("product administration UI", () => {
 });
 
 describe("cashier and receipt use product items", () => {
-  it("renders one quantity input per active product", () => {
+  it("builds the order from a product picker and posts one quantity per line", () => {
     const cashier = source("app/routes/admin.cashier.tsx");
     expect(cashier).toContain("listActiveProducts");
+    expect(cashier).toContain("ProductPickerModal");
+    expect(cashier).toContain("+ Tambah product");
+    expect(cashier).toContain("useState<OrderLine[]>");
+    expect(cashier).toContain("orderLines.map");
     expect(cashier).toContain("name={`qty_${product.id}`}");
     expect(cashier).toContain("parseOrderItemFields");
     expect(cashier).not.toContain('name="quantity"');
+  });
+
+  it("renders the picker outside the order form so Enter in its search box cannot submit the order", () => {
+    const cashier = source("app/routes/admin.cashier.tsx");
+    expect(cashier.indexOf("</Form>")).toBeGreaterThan(-1);
+    expect(cashier.indexOf("<ProductPickerModal")).toBeGreaterThan(cashier.indexOf("</Form>"));
   });
 
   it("lists item lines on the receipt instead of a single print count", () => {
