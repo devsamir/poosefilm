@@ -1,13 +1,13 @@
+import { calculateOrderTotal } from "~/utils/order-items";
+
 export type OrderSnapshotInput = {
-  quantity: number;
-  unitPrice: number;
+  items: { unitPrice: number; quantity: number }[];
   isRealTransaction?: boolean;
 };
 
-export function buildOrderSnapshot({ quantity, unitPrice, isRealTransaction = true }: OrderSnapshotInput) {
+export function buildOrderSnapshot({ items, isRealTransaction = true }: OrderSnapshotInput) {
   return {
-    unitPrice,
-    totalAmount: isRealTransaction ? quantity * unitPrice : 0,
+    totalAmount: calculateOrderTotal(items, isRealTransaction),
     isRealTransaction,
     paymentMethod: "CASH" as const,
     paymentStatus: "PAID" as const,

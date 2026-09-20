@@ -4,16 +4,9 @@ import {
   canDeactivateSuperadmin,
   hashUserPassword,
   normalizeUserEmail,
-  validatePricePerPrint,
 } from "~/services/users.server";
 
 describe("settings and user policies", () => {
-  it("accepts only positive integer prices", () => {
-    expect(validatePricePerPrint("95000")).toBe(95000);
-    expect(() => validatePricePerPrint("0")).toThrow();
-    expect(() => validatePricePerPrint("95000.5")).toThrow();
-  });
-
   it("normalizes emails and hashes passwords", async () => {
     expect(normalizeUserEmail(" Staff@PooseFilm.ID ")).toBe("staff@poosefilm.id");
     const hash = await hashUserPassword("secret");

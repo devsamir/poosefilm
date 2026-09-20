@@ -11,6 +11,7 @@ export function AccountMenu({ user }: { user: AuthUser }) {
       </summary>
       <div className="absolute right-0 top-14 z-20 w-48 rounded-2xl border border-[#e6ded2] bg-white p-2 shadow-xl">
         {user.role === "SUPERADMIN" ? <>
+          <Link className="menu-link" to="/admin/products">Produk</Link>
           <Link className="menu-link" to="/admin/settings">Settings</Link>
           <Link className="menu-link" to="/admin/users">Users</Link>
         </> : null}

@@ -13,13 +13,6 @@ export function normalizeUserEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-export function validatePricePerPrint(value: string) {
-  if (!/^\d+$/.test(value.trim()) || Number(value) <= 0) {
-    throw new Error("Harga harus berupa bilangan bulat positif.");
-  }
-  return Number(value);
-}
-
 export async function hashUserPassword(password: string) {
   if (password.length < 6) throw new Error("Password minimal 6 karakter.");
   return bcrypt.hash(password, 12);
