@@ -131,6 +131,6 @@ export async function renderFilteredImage(input: { sourceBuffer: Buffer; filterC
 
   return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
     .flatten({ background: { r: 255, g: 255, b: 255 } })
-    .jpeg({ quality: 98, mozjpeg: true, chromaSubsampling: "4:4:4" })
+    .jpeg({ quality: 100, mozjpeg: true, chromaSubsampling: "4:4:4" })
     .toBuffer();
 }
