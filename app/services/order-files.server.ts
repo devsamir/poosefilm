@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 
 import type { AuthUser } from "~/services/auth.server";
 import { getOrderByCode } from "~/services/orders.server";
-import { enqueueImageRenderJob } from "~/services/filter-render-jobs.server";
+import { enqueueImageRenderJob, refreshOrderFilterStatus } from "~/services/filter-render-jobs.server";
 import { prisma } from "~/services/prisma.server";
 import { assertObjectExists, createPresignedPutUrl, deleteObjectIfPresent, getObjectBuffer, putObject } from "~/services/r2.server";
 import { serializeOrderMedia } from "~/utils/media";
@@ -128,6 +128,7 @@ export async function deleteOrderFile(orderCode: string, fileId: number, user: A
     const nextStatus = getOrderStatusAfterFileDeletion(file.order.status, remainingFileCount);
     if (nextStatus !== file.order.status) await transaction.order.update({ where: { id: file.orderId }, data: { status: nextStatus } });
   });
+  await refreshOrderFilterStatus(file.orderId);
   for (const storageKey of [file.storageKey, ...file.variants.map((variant) => variant.storageKey)]) await deleteObjectIfPresent(storageKey);
 }
 

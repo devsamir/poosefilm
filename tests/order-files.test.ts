@@ -38,6 +38,12 @@ describe("order media uploads", () => {
     expect(getOrderStatusAfterFileDeletion("DELIVERED", 0)).toBe("DELIVERED");
   });
 
+  it("re-checks the filter status after deleting a file so a removed job cannot leave the order stuck", () => {
+    const serviceSource = readFileSync(resolve(process.cwd(), "app/services/order-files.server.ts"), "utf8");
+    const deleteFunction = serviceSource.slice(serviceSource.indexOf("export async function deleteOrderFile"), serviceSource.indexOf("export async function listWaitingOrders"));
+    expect(deleteFunction).toContain("refreshOrderFilterStatus(file.orderId)");
+  });
+
   it("allows additional uploads to delivered orders", () => {
     const serviceSource = readFileSync(resolve(process.cwd(), "app/services/order-files.server.ts"), "utf8");
     expect(serviceSource).not.toContain('if (order.status === "DELIVERED") throw new Error("Order sudah selesai.");');
