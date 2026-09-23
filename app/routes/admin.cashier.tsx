@@ -96,6 +96,7 @@ export default function CashierPage() {
     productKind: product.kind,
   }));
   const printQuantity = countPrintQuantity(items);
+  const defaultFilterPackageId = filterPackages.find((filterPackage) => filterPackage.isDefault)?.id;
   const closePicker = useCallback(() => setPickerOpen(false), []);
   useEffect(() => {
     if (order?.code) {
@@ -240,7 +241,7 @@ export default function CashierPage() {
             </fieldset>
             <label className="field-label sm:col-span-2">
               Paket filter
-              <select className="field-input" name="filterPackageId" defaultValue="">
+              <select className="field-input" name="filterPackageId" defaultValue={defaultFilterPackageId ? String(defaultFilterPackageId) : ''}>
                 <option value="">Original saja</option>
                 {filterPackages.map((filterPackage) => (
                   <option key={filterPackage.id} value={filterPackage.id}>

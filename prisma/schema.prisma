@@ -141,6 +141,7 @@ model FilterPackage {
   id        Int                 @id @default(autoincrement())
   name      String              @unique
   isActive  Boolean             @default(true) @map("is_active")
+  isDefault Boolean             @default(false) @map("is_default")
   items     FilterPackageItem[]
   orders    Order[]
   createdAt DateTime            @default(now()) @map("created_at")

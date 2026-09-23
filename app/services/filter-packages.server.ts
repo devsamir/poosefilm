@@ -2,7 +2,7 @@ import { prisma } from "~/services/prisma.server";
 import { expandPackageFilters, generateFilterCss, validateFilterValues, type FilterValueInput } from "~/utils/filter-domain";
 
 export type FilterTemplateInput = { name: string; previewColor?: string; values: FilterValueInput[]; isActive?: boolean };
-export type FilterPackageInput = { name: string; filterTemplateIds: number[]; isActive?: boolean };
+export type FilterPackageInput = { name: string; filterTemplateIds: number[]; isActive?: boolean; isDefault?: boolean };
 
 function normalizeName(name: string) {
   const normalized = name.trim();
@@ -51,9 +51,9 @@ export async function deleteFilterTemplate(id: number) {
   return prisma.filterTemplate.delete({ where: { id } });
 }
 
-function serializeFilterPackage(packageData: { id: number; name: string; isActive: boolean; items: Array<{ sortOrder: number; filterTemplate: { id: number; name: string; values: Array<{ filterType: string; value: string }> } }> }) {
+function serializeFilterPackage(packageData: { id: number; name: string; isActive: boolean; isDefault: boolean; items: Array<{ sortOrder: number; filterTemplate: { id: number; name: string; values: Array<{ filterType: string; value: string }> } }> }) {
   const filters = packageData.items.sort((left, right) => left.sortOrder - right.sortOrder).map((item) => ({ id: item.filterTemplate.id, name: item.filterTemplate.name, css: generateFilterCss(validateFilterValues(item.filterTemplate.values.map((value) => ({ filterType: value.filterType, value: value.value })))) }));
-  return { id: packageData.id, name: packageData.name, isActive: packageData.isActive, filters, snapshots: expandPackageFilters(filters) };
+  return { id: packageData.id, name: packageData.name, isActive: packageData.isActive, isDefault: packageData.isDefault, filters, snapshots: expandPackageFilters(filters) };
 }
 
 const packageInclude = { items: { include: { filterTemplate: { include: { values: true } }, }, orderBy: { sortOrder: "asc" as const } } };
@@ -71,15 +71,23 @@ export async function getActiveFilterPackages() {
 export async function createFilterPackage(input: FilterPackageInput) {
   const name = normalizeName(input.name);
   const filterTemplateIds = normalizePackageFilterIds(input.filterTemplateIds);
-  return prisma.filterPackage.create({ data: { name, isActive: input.isActive ?? true, items: { create: filterTemplateIds.map((filterTemplateId, sortOrder) => ({ filterTemplateId, sortOrder })) } }, include: packageInclude });
+  const isActive = input.isActive ?? true;
+  const isDefault = isActive && Boolean(input.isDefault);
+  return prisma.$transaction(async (transaction) => {
+    if (isDefault) await transaction.filterPackage.updateMany({ where: { isDefault: true }, data: { isDefault: false } });
+    return transaction.filterPackage.create({ data: { name, isActive, isDefault, items: { create: filterTemplateIds.map((filterTemplateId, sortOrder) => ({ filterTemplateId, sortOrder })) } }, include: packageInclude });
+  });
 }
 
 export async function updateFilterPackage(id: number, input: FilterPackageInput) {
   const name = normalizeName(input.name);
   const filterTemplateIds = normalizePackageFilterIds(input.filterTemplateIds);
+  const isActive = input.isActive ?? true;
+  const isDefault = isActive && Boolean(input.isDefault);
   return prisma.$transaction(async (transaction) => {
+    if (isDefault) await transaction.filterPackage.updateMany({ where: { isDefault: true, id: { not: id } }, data: { isDefault: false } });
     await transaction.filterPackageItem.deleteMany({ where: { packageId: id } });
-    return transaction.filterPackage.update({ where: { id }, data: { name, isActive: input.isActive ?? true, items: { create: filterTemplateIds.map((filterTemplateId, sortOrder) => ({ filterTemplateId, sortOrder })) } }, include: packageInclude });
+    return transaction.filterPackage.update({ where: { id }, data: { name, isActive, isDefault, items: { create: filterTemplateIds.map((filterTemplateId, sortOrder) => ({ filterTemplateId, sortOrder })) } }, include: packageInclude });
   });
 }
 
