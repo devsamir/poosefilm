@@ -71,7 +71,7 @@ describe("public order portal", () => {
     expect(historyPage).toContain("aria-modal=\"true\"");
     expect(historyPage).toContain("useRevalidator");
     expect(historyPage).toContain("onUploadComplete");
-    expect(historyPage).toContain('accept="image/jpeg,image/png,image/webp"');
+    expect(historyPage).not.toContain('accept="image/jpeg,image/png,image/webp"');
     expect(historyPage).toContain("FREE");
     expect(queuePage).toContain('canDelete');
     expect(queuePage).toContain("Kirim WA");
