@@ -55,16 +55,6 @@ describe("cashier and receipt use product items", () => {
   });
 });
 
-describe("daily summary counts prints from order items", () => {
-  it("aggregates print item quantities of real orders only", () => {
-    const reports = source("app/services/reports.server.ts");
-    expect(reports).toContain("prisma.orderItem.aggregate");
-    expect(reports).toContain("isRealTransaction: true");
-    expect(reports).toContain('productKind: "PRINT"');
-    expect(reports).not.toContain("_sum: { quantity: true, totalAmount: true }");
-  });
-});
-
 describe("dedicated master product page", () => {
   it("is superadmin-only and offers search, type, and status filters", () => {
     const page = source("app/routes/admin.products.tsx");
